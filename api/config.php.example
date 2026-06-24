@@ -1,0 +1,15 @@
+<?php
+/**
+ * Configuración de la Base de Datos (Plantilla de ejemplo)
+ * Reemplaza estos valores con los de tu entorno de desarrollo o producción
+ */
+
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'tu_nombre_de_base_de_datos');
+define('DB_USER', 'tu_usuario_de_base_de_datos');
+define('DB_PASS', 'tu_contraseña_de_base_de_datos');
+define('DB_CHARSET', 'utf8mb4');
+
+// Configuración de desarrollo / producción
+define('DEBUG_MODE', false);
+?>

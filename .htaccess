@@ -1,0 +1,30 @@
+# Permitir acceso a recursos estáticos y configuración básica de servidor
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+</IfModule>
+
+# Asegurar que los archivos de la carpeta assets sean accesibles
+<Directory "assets">
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Allow from all
+    </IfModule>
+</Directory>
+
+# Permitir acceso a extensiones comunes en todo el sitio
+<FilesMatch "\.(png|jpg|jpeg|gif|webp|svg|js|css|pdf|ico|woff|woff2|ttf|otf)$">
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Allow from all
+    </IfModule>
+</FilesMatch>
+
+# Desactivar el listado de directorios por seguridad, pero permitir acceso a archivos
+Options -Indexes
