@@ -126,8 +126,12 @@ function getCards($pdo)
         }
 
         if (isset($_GET['search']) && $_GET['search'] !== '') {
-            $filters[] = "(name COLLATE utf8mb4_unicode_ci LIKE :search OR ability_text COLLATE utf8mb4_unicode_ci LIKE :search OR ability COLLATE utf8mb4_unicode_ci LIKE :search OR CAST(id AS CHAR) LIKE :search)";
-            $params['search'] = "%" . $_GET['search'] . "%";
+            $filters[] = "(name COLLATE utf8mb4_unicode_ci LIKE :search1 OR ability_text COLLATE utf8mb4_unicode_ci LIKE :search2 OR ability COLLATE utf8mb4_unicode_ci LIKE :search3 OR CAST(id AS CHAR) LIKE :search4)";
+            $searchVal = "%" . $_GET['search'] . "%";
+            $params['search1'] = $searchVal;
+            $params['search2'] = $searchVal;
+            $params['search3'] = $searchVal;
+            $params['search4'] = $searchVal;
         }
 
         if (isset($_GET['min_cost']) && is_numeric($_GET['min_cost'])) {
