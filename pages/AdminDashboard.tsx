@@ -154,12 +154,17 @@ const AdminDashboard: React.FC = () => {
     };
 
     useEffect(() => {
-        if (hasAccess) {
-            localStorage.setItem('adminActiveTab', activeTab);
-            localStorage.setItem('adminSettingsTab', settingsTab);
+        if (!hasAccess) return;
+
+        localStorage.setItem('adminActiveTab', activeTab);
+        localStorage.setItem('adminSettingsTab', settingsTab);
+
+        const timer = setTimeout(() => {
             fetchData();
-        }
-    }, [activeTab, settingsTab, hasAccess]);
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [activeTab, settingsTab, searchTerm, hasAccess]);
 
     const handleTabChange = (tab: typeof activeTab) => {
         setActiveTab(tab);
@@ -489,7 +494,7 @@ const AdminDashboard: React.FC = () => {
                             <form onSubmit={handleSearchSubmit} className="flex w-full md:max-w-md bg-black/40 border border-white/10 rounded-sm overflow-hidden focus-within:border-[#ffd900] transition-colors">
                                 <input
                                     type="text"
-                                    placeholder={`Buscar por nombre o ID...`}
+                                    placeholder={`Buscar por nombre, texto o ID...`}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="flex-1 bg-transparent px-4 py-2.5 text-xs text-white outline-none placeholder:text-white/20"

@@ -126,7 +126,7 @@ function getCards($pdo)
         }
 
         if (isset($_GET['search']) && $_GET['search'] !== '') {
-            $filters[] = "name COLLATE utf8mb4_unicode_ci LIKE :search";
+            $filters[] = "(name COLLATE utf8mb4_unicode_ci LIKE :search OR ability_text COLLATE utf8mb4_unicode_ci LIKE :search OR ability COLLATE utf8mb4_unicode_ci LIKE :search OR CAST(id AS CHAR) LIKE :search)";
             $params['search'] = "%" . $_GET['search'] . "%";
         }
 
