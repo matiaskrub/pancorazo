@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
-import { Card, Team, Match, Tournament, User, Noticia } from '../types';
+import { Card, Team, Match, Tournament, User, Noticia, CardAbility } from '../types';
 import AddCardModal from '../components/AddCardModal';
 import EditTeamModal from '../components/EditTeamModal';
 import CreateTeamModal from '../components/CreateTeamModal';
@@ -10,6 +10,7 @@ import CreateTournamentModal from '../components/CreateTournamentModal';
 import EditTournamentModal from '../components/EditTournamentModal';
 import CreateCategoryModal from '../components/CreateCategoryModal';
 import CreateEditionModal from '../components/CreateEditionModal';
+import CreateAbilityModal from '../components/CreateAbilityModal';
 import AddNewsModal from '../components/AddNewsModal';
 import ConfirmActionModal from '../components/ConfirmActionModal';
 import EditSeasonModal from '../components/EditSeasonModal';
@@ -30,7 +31,7 @@ const AdminDashboard: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'cartas' | 'equipos' | 'partidos' | 'torneos' | 'configuracion'>(
         (localStorage.getItem('adminActiveTab') as any) || 'cartas'
     );
-    const [settingsTab, setSettingsTab] = useState<'elo' | 'equipos' | 'noticias' | 'otros' | 'cierre_elo' | 'ediciones'>(
+    const [settingsTab, setSettingsTab] = useState<'elo' | 'equipos' | 'noticias' | 'otros' | 'cierre_elo' | 'ediciones' | 'destrezas'>(
         (localStorage.getItem('adminSettingsTab') as any) || 'elo'
     );
 
@@ -44,6 +45,7 @@ const AdminDashboard: React.FC = () => {
     const [news, setNews] = useState<Noticia[]>([]);
     const [seasons, setSeasons] = useState<any[]>([]);
     const [editions, setEditions] = useState<any[]>([]);
+    const [abilities, setAbilities] = useState<CardAbility[]>([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -81,6 +83,9 @@ const AdminDashboard: React.FC = () => {
 
     const [isEditionModalOpen, setIsEditionModalOpen] = useState(false);
     const [selectedEdition, setSelectedEdition] = useState<any | null>(null);
+
+    const [isAbilityModalOpen, setIsAbilityModalOpen] = useState(false);
+    const [selectedAbility, setSelectedAbility] = useState<CardAbility | null>(null);
 
     // Confirm Modal
     const [confirmModal, setConfirmModal] = useState<{
@@ -143,6 +148,9 @@ const AdminDashboard: React.FC = () => {
                 } else if (settingsTab === 'ediciones') {
                     const eds = await apiService.getCardEditions();
                     setEditions(eds);
+                } else if (settingsTab === 'destrezas') {
+                    const abs = await apiService.getCardAbilities();
+                    setAbilities(abs);
                 }
             }
         } catch (err: any) {
@@ -322,6 +330,22 @@ const AdminDashboard: React.FC = () => {
                     fetchData();
                 } catch (err: any) {
                     alert('Error al eliminar la edición: ' + err.message);
+                }
+            }
+        });
+    };
+
+    const handleDeleteAbility = async (id: number | string) => {
+        openConfirm({
+            title: 'Eliminar Destreza',
+            message: '¿Estás seguro de eliminar esta destreza? Las cartas asociadas quedarán sin esta destreza asignada.',
+            isDangerous: true,
+            onConfirm: async () => {
+                try {
+                    await apiService.deleteCardAbility(id);
+                    fetchData();
+                } catch (err: any) {
+                    alert('Error al eliminar la destreza: ' + err.message);
                 }
             }
         });
@@ -554,6 +578,7 @@ const AdminDashboard: React.FC = () => {
                                 { id: 'elo', label: 'Autorización ELO', icon: 'sports_score' },
                                 { id: 'equipos', label: 'Autorizar Equipos (Claims)', icon: 'how_to_reg' },
                                 { id: 'noticias', label: 'Noticias / Novedades', icon: 'newspaper' },
+                                { id: 'destrezas', label: 'Destrezas / Habilidades', icon: 'psychology', adminOnly: true },
                                 { id: 'ediciones', label: 'Ediciones de Cartas', icon: 'style', adminOnly: true },
                                 { id: 'otros', label: 'Categorías (Series)', icon: 'category', superOnly: true },
                                 { id: 'cierre_elo', label: 'Temporadas y Cierre', icon: 'lock_open', superOnly: true }
@@ -1258,6 +1283,84 @@ const AdminDashboard: React.FC = () => {
                                             </div>
                                         )}
 
+                                         {/* SUBTAB: DESTREZAS Y HABILIDADES */}
+                                         {settingsTab === 'destrezas' && (
+                                             <div className="space-y-6">
+                                                 <div className="flex justify-between items-center">
+                                                     <div>
+                                                         <h3 className="text-xs font-black uppercase text-white tracking-widest">Destrezas y Habilidades de Cartas</h3>
+                                                         <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Configuración de destrezas para Jugadores, Jugadas, Fouls, Estrategias y más</p>
+                                                     </div>
+                                                     <button
+                                                         onClick={() => { setSelectedAbility(null); setIsAbilityModalOpen(true); }}
+                                                         className="bg-[#ffd900] text-black px-6 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-[#ffed4d] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-1 shadow-lg shadow-[#ffd900]/5"
+                                                     >
+                                                         <span className="material-symbols-outlined text-sm">add</span> Crear Nueva Destreza
+                                                     </button>
+                                                 </div>
+
+                                                 <table className="w-full border-collapse text-left mt-4">
+                                                     <thead>
+                                                         <tr className="bg-white/2 border-b border-white/5 text-[9px] font-black text-white/30 uppercase tracking-widest">
+                                                             <th className="px-6 py-4">Destreza / Habilidad</th>
+                                                             <th className="px-6 py-4">Tipos de Carta Permitidos</th>
+                                                             <th className="px-6 py-4 text-right">Acciones</th>
+                                                         </tr>
+                                                     </thead>
+                                                     <tbody className="divide-y divide-white/5">
+                                                         {abilities.map(ab => (
+                                                             <tr key={ab.id} className="hover:bg-white/2 transition-colors">
+                                                                 <td className="px-6 py-4">
+                                                                     <div className="text-xs font-bold text-white uppercase">{ab.name}</div>
+                                                                     <div className="text-[9px] text-white/30 uppercase tracking-widest mt-0.5">ID: #{ab.id}</div>
+                                                                 </td>
+                                                                 <td className="px-6 py-4">
+                                                                     {ab.allowed_types === 'ALL' ? (
+                                                                         <span className="px-2.5 py-1 text-[9px] font-black uppercase bg-[#ffd900]/10 text-[#ffd900] border border-[#ffd900]/20 rounded-sm">
+                                                                             TODOS LOS TIPOS (UNIVERSAL)
+                                                                         </span>
+                                                                     ) : (
+                                                                         <div className="flex flex-wrap gap-1">
+                                                                             {ab.allowed_types.split(',').map(t => (
+                                                                                 <span key={t} className="px-2 py-0.5 text-[8px] font-bold uppercase bg-white/5 border border-white/10 text-white/70 rounded-sm">
+                                                                                     {t.trim()}
+                                                                                 </span>
+                                                                             ))}
+                                                                         </div>
+                                                                     )}
+                                                                 </td>
+                                                                 <td className="px-6 py-4 text-right">
+                                                                     <div className="flex justify-end gap-2">
+                                                                         <button
+                                                                             onClick={() => { setSelectedAbility(ab); setIsAbilityModalOpen(true); }}
+                                                                             className="p-1.5 bg-white/5 border border-white/10 text-white/60 hover:text-[#ffd900] hover:border-[#ffd900]/30 transition-colors"
+                                                                             title="Editar Destreza"
+                                                                         >
+                                                                             <span className="material-symbols-outlined text-sm">edit</span>
+                                                                         </button>
+                                                                         <button
+                                                                             onClick={() => handleDeleteAbility(ab.id)}
+                                                                             className="p-1.5 bg-red-500/5 border border-red-500/10 text-red-500/60 hover:text-red-500 hover:border-red-500/30 transition-colors"
+                                                                             title="Eliminar Destreza"
+                                                                         >
+                                                                             <span className="material-symbols-outlined text-sm">delete</span>
+                                                                         </button>
+                                                                     </div>
+                                                                 </td>
+                                                             </tr>
+                                                         ))}
+                                                         {abilities.length === 0 && (
+                                                             <tr>
+                                                                 <td colSpan={3} className="py-20 text-center text-white/20 uppercase text-[10px] font-black tracking-widest">
+                                                                     No hay destrezas registradas
+                                                                 </td>
+                                                             </tr>
+                                                         )}
+                                                     </tbody>
+                                                 </table>
+                                             </div>
+                                         )}
+
                                          {/* SUBTAB: EDICIONES DE CARTAS */}
                                          {settingsTab === 'ediciones' && (
                                              <div className="space-y-6">
@@ -1508,6 +1611,14 @@ const AdminDashboard: React.FC = () => {
                 onClose={() => setIsEditionModalOpen(false)}
                 onEditionSaved={fetchData}
                 initialData={selectedEdition}
+            />
+
+            {/* Modal Crear/Editar Destrezas de Cartas */}
+            <CreateAbilityModal
+                isOpen={isAbilityModalOpen}
+                onClose={() => setIsAbilityModalOpen(false)}
+                onAbilitySaved={fetchData}
+                initialData={selectedAbility}
             />
 
             {/* Modal Crear Categoría de Torneos */}

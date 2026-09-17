@@ -1,4 +1,4 @@
-import { Card, Noticia } from '../types';
+import { Card, Noticia, CardAbility } from '../types';
 
 const API_URL = '/api';
 
@@ -933,6 +933,48 @@ export const apiService = {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || result.message || 'Error al eliminar la edición');
+    return result;
+  },
+
+  async getCardAbilities(): Promise<CardAbility[]> {
+    const response = await fetch(`${API_URL}/abilities.php?_t=${Date.now()}`, { credentials: 'include' });
+    if (!response.ok) return [];
+    return response.json();
+  },
+
+  async createCardAbility(name: string, allowed_types: string = 'ALL') {
+    const response = await fetch(`${API_URL}/abilities.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create', name, allowed_types }),
+      credentials: 'include'
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || result.message || 'Error al crear la destreza');
+    return result;
+  },
+
+  async updateCardAbility(id: number | string, name: string, allowed_types: string = 'ALL') {
+    const response = await fetch(`${API_URL}/abilities.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update', id, name, allowed_types }),
+      credentials: 'include'
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || result.message || 'Error al actualizar la destreza');
+    return result;
+  },
+
+  async deleteCardAbility(id: number | string) {
+    const response = await fetch(`${API_URL}/abilities.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', id }),
+      credentials: 'include'
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || result.message || 'Error al eliminar la destreza');
     return result;
   },
 

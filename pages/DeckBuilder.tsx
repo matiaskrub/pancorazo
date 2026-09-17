@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiService } from '../services/api';
-import { Card, Team, User } from '../types';
+import { Card, Team, User, CardAbility } from '../types';
 import BuilderCard from '../components/BuilderCard';
 import DeckStats from '../components/DeckStats';
 import SaveDeckModal from '../components/SaveDeckModal';
@@ -185,6 +185,8 @@ const DeckBuilder2: React.FC = () => {
   const [activeTypes, setActiveTypes] = useState<string[]>([]); // Multi-select categories
   const [activeCost, setActiveCost] = useState<number | 'Limpiar'>('Limpiar');
   const [activeShirtColor, setActiveShirtColor] = useState('Limpiar');
+  const [activeAbility, setActiveAbility] = useState('Limpiar');
+  const [dbAbilities, setDbAbilities] = useState<CardAbility[]>([]);
   const [sortBy, setSortBy] = useState('DEFAULT');
 
   // UI States
@@ -200,6 +202,12 @@ const DeckBuilder2: React.FC = () => {
     apiService.getCards().then(data => {
       setAllCards(data);
     });
+
+    apiService.getCardAbilities().then(data => {
+      if (Array.isArray(data)) {
+        setDbAbilities(data);
+      }
+    }).catch(err => console.error('Error al obtener destrezas:', err));
 
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
@@ -272,6 +280,7 @@ const DeckBuilder2: React.FC = () => {
           rarity: activeRarities.length > 0 ? activeRarities.join(',') : '',
           type: activeTypes.length > 0 ? activeTypes.join(',') : '',
           shirt_color: activeShirtColor === 'Limpiar' ? '' : activeShirtColor,
+          ability: activeAbility === 'Limpiar' ? '' : activeAbility,
         };
         const data = await apiService.getCards(filters);
         
@@ -290,7 +299,35 @@ const DeckBuilder2: React.FC = () => {
     };
     const debounce = setTimeout(fetchCatalog, 300);
     return () => clearTimeout(debounce);
-  }, [search, activePosition, activeRarities, activeTypes, activeCost, activeShirtColor]);
+  }, [search, activePosition, activeRarities, activeTypes, activeCost, activeShirtColor, activeAbility]);
+
+  const abilitiesList = useMemo(() => {
+    let filteredDb = dbAbilities;
+
+    if (activeTypes.length > 0) {
+      const selectedTypesLower = activeTypes.map(t => t.trim().toLowerCase());
+      filteredDb = dbAbilities.filter(ab => {
+        if (!ab.allowed_types || ab.allowed_types === 'ALL') return true;
+        const allowedList = ab.allowed_types.split(',').map(t => t.trim().toLowerCase());
+        return allowedList.some(t => {
+          return selectedTypesLower.some(st => {
+            if (t === st) return true;
+            if ((st === 'jugada' || st === 'jugadas') && (t === 'jugada' || t === 'jugadas')) return true;
+            if ((st === 'foul' || st === 'fouls') && (t === 'foul' || t === 'fouls')) return true;
+            return false;
+          });
+        });
+      });
+    }
+
+    const dbNames = filteredDb.map(a => a.name);
+    const fromCards = catalogCards
+      .filter(c => activeTypes.length === 0 || activeTypes.includes(c.type))
+      .flatMap(c => c.ability ? c.ability.split(',').map(a => a.trim()) : []);
+
+    const combined = Array.from(new Set([...dbNames, ...fromCards])).filter(Boolean);
+    return combined.sort((a, b) => a.localeCompare(b));
+  }, [dbAbilities, catalogCards, activeTypes]);
 
   const sortedCatalogCards = useMemo(() => {
     const rarityOrder: Record<string, number> = {
@@ -1456,6 +1493,10 @@ const DeckBuilder2: React.FC = () => {
                  <option value="Limpiar" className="bg-[#101622] text-white font-sans text-xs">Color</option>
                  {shirtColors.map(c => <option key={c.name} value={c.name} className="bg-[#101622] text-white font-sans text-xs">{c.name.toUpperCase()}</option>)}
               </select>
+              <select value={activeAbility} onChange={e => setActiveAbility(e.target.value)} className="bg-[#1a2332] border border-white/10 rounded-lg px-3 py-1.5 text-[9px] font-black text-white/80 outline-none focus:border-[#ffd900] uppercase cursor-pointer hover:border-[#ffd900]/30 transition-all">
+                 <option value="Limpiar" className="bg-[#101622] text-white font-sans text-xs">Destreza / Habilidad</option>
+                 {abilitiesList.map(a => <option key={a} value={a} className="bg-[#101622] text-white font-sans text-xs">{a.toUpperCase()}</option>)}
+              </select>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="bg-[#1a2332] border border-white/10 rounded-lg px-3 py-1.5 text-[9px] font-black text-white/80 outline-none focus:border-[#ffd900] uppercase cursor-pointer hover:border-[#ffd900]/30 transition-all">
                  <option value="DEFAULT" className="bg-[#101622] text-white font-sans text-xs">Ordenar por</option>
                  <option value="NAME_ASC" className="bg-[#101622] text-white font-sans text-xs">ALFABÉTICO (A-Z)</option>
@@ -1464,7 +1505,7 @@ const DeckBuilder2: React.FC = () => {
                  <option value="RARITY_ASC" className="bg-[#101622] text-white font-sans text-xs">RAREZA (MENOR)</option>
               </select>
               <button 
-                onClick={() => { setSearch(''); setActivePosition('Limpiar'); setActiveRarities([]); setActiveTypes([]); setActiveCost('Limpiar'); setActiveShirtColor('Limpiar'); setSortBy('DEFAULT'); }}
+                onClick={() => { setSearch(''); setActivePosition('Limpiar'); setActiveRarities([]); setActiveTypes([]); setActiveCost('Limpiar'); setActiveShirtColor('Limpiar'); setActiveAbility('Limpiar'); setSortBy('DEFAULT'); }}
                 className="px-3 py-1.5 text-[8.5px] font-black uppercase text-red-400 hover:bg-red-400/10 rounded-lg transition-colors border border-red-400/20"
               >
                 Limpiar Filtros

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { apiService } from '../services/api';
+import { CardAbility } from '../types';
 
 interface AddCardModalProps {
     isOpen: boolean;
@@ -10,8 +11,9 @@ interface AddCardModalProps {
 
 const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdded, initialData }) => {
     const [loading, setLoading] = useState(false);
-    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [error, setError] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [imageFile, setImageFile] = useState<File | null>(null);
 
     const NATIONALITIES = ['Chile', 'Argentina', 'Brasil', 'Bolivia', 'Uruguay', 'Perú', 'Colombia', 'Palestina', 'Italia', 'Japón'];
     const SHIRT_COLORS = ['Negro', 'Blanco', 'Verde', 'Azul', 'Amarillo', 'Rojo', 'Sin color', 'De Selección'];
@@ -29,7 +31,7 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
         gender: 'Masculino',
         cost: 0,
         category: 'adulto',
-        ability: 'Sin habilidad',
+        ability: '',
         edition: 'El Debut',
         has_x_cost: 0,
         is_unlimited: 0,
@@ -41,8 +43,37 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
     const [selectedShirtColors, setSelectedShirtColors] = useState<string[]>(['Sin color']);
     const [isSeleccion, setIsSeleccion] = useState(false);
     const [editions, setEditions] = React.useState<any[]>([]);
+    const [dbAbilities, setDbAbilities] = React.useState<CardAbility[]>([]);
     const [primaryPosition, setPrimaryPosition] = useState<string>('DL');
     const [secondaryPosition, setSecondaryPosition] = useState<string>('');
+
+    const getFilteredAbilities = () => {
+        const currentType = (formData.type || '').trim().toLowerCase();
+
+        if (dbAbilities.length > 0) {
+            return dbAbilities.filter(ab => {
+                if (!ab.allowed_types || ab.allowed_types === 'ALL') return true;
+                const allowedList = ab.allowed_types.split(',').map(t => t.trim().toLowerCase());
+                return allowedList.some(t => {
+                    if (t === currentType) return true;
+                    if ((currentType === 'jugada' || currentType === 'jugadas') && (t === 'jugada' || t === 'jugadas')) return true;
+                    if ((currentType === 'foul' || currentType === 'fouls') && (t === 'foul' || t === 'fouls')) return true;
+                    return false;
+                });
+            });
+        }
+
+        const defaults: Record<string, string[]> = {
+            jugador: ['Líder', 'Muralla', 'Capitán', 'Goleador', 'Juego Sucio', 'Humildad', 'Poder Femenino', 'Baluarte'],
+            estrategia: ['Equipo', 'Baluarte'],
+            jugada: ['Remate', 'Lujo', 'Aéreo', 'Balón Parado', 'Dribbling', 'Baluarte'],
+            jugadas: ['Remate', 'Lujo', 'Aéreo', 'Balón Parado', 'Dribbling', 'Baluarte'],
+            foul: ['Entrada', 'Superioridad Aérea', 'Empujón', 'Baluarte'],
+            fouls: ['Entrada', 'Superioridad Aérea', 'Empujón', 'Baluarte']
+        };
+        const list = defaults[currentType] || ['Baluarte'];
+        return list.map((name, i) => ({ id: i + 1, name, allowed_types: formData.type }));
+    };
 
     React.useEffect(() => {
         if (initialData && isOpen) {
@@ -136,6 +167,12 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
             }).catch(err => {
                 console.error('Error al obtener ediciones:', err);
             });
+
+            apiService.getCardAbilities().then(data => {
+                setDbAbilities(data);
+            }).catch(err => {
+                console.error('Error al obtener destrezas:', err);
+            });
         }
     }, [isOpen, initialData]);
 
@@ -182,7 +219,7 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
                 stats_defense: isPlayer ? formData.stats_defense : null,
                 gender: isPlayer ? formData.gender : '',
                 category: isPlayer ? formData.category : '',
-                ability: isPlayer ? formData.ability : '',
+                ability: formData.ability || '',
                 has_x_cost: formData.has_x_cost === 1 ? 1 : 0,
                 is_unlimited: formData.is_unlimited === 1 ? 1 : 0,
                 is_hero: formData.is_hero === 1 ? 1 : 0,
@@ -319,7 +356,6 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
                                     <option value="Foul">Foul</option>
                                     <option value="Estrategia">Estrategia</option>
                                     <option value="Hinchada">Hinchada</option>
-                                    <option value="Estadio">Estadio</option>
                                     <option value="Energía">Energía</option>
                                     <option value="Ayudante Técnico">Ayudante Técnico</option>
                                 </select>
@@ -410,6 +446,21 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
                                         </div>
                                     </div>
                                 )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Destreza / Habilidad</label>
+                                <select
+                                    name="ability"
+                                    value={formData.ability}
+                                    onChange={handleInputChange}
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white appearance-none outline-none focus:border-[#ffd900]/50 font-medium"
+                                >
+                                    <option value="">Sin destreza / habilidad</option>
+                                    {getFilteredAbilities().map(ab => (
+                                        <option key={ab.id} value={ab.name}>{ab.name}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div className="space-y-4 col-span-full border-t border-white/5 pt-6 mt-2">
@@ -515,25 +566,6 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
                                             <option value="sub 20">Sub 20</option>
                                             <option value="sub 18">Sub 18</option>
                                             <option value="sub 15">Sub 15</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Habilidad</label>
-                                        <select
-                                            name="ability"
-                                            value={formData.ability}
-                                            onChange={handleInputChange}
-                                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white appearance-none outline-none"
-                                        >
-                                            <option value="">Sin habilidad</option>
-                                            <option value="Líder">Líder</option>
-                                            <option value="Muralla">Muralla</option>
-                                            <option value="Capitán">Capitán</option>
-                                            <option value="Goleador">Goleador</option>
-                                            <option value="Juego Sucio">Juego Sucio</option>
-                                            <option value="Humildad">Humildad</option>
-                                            <option value="Poder Femenino">Poder Femenino</option>
                                         </select>
                                     </div>
 

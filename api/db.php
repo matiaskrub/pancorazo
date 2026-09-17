@@ -203,6 +203,39 @@ try {
     foreach ($basicEditions as $be) {
         $stmtInsert->execute([$be]);
     }
+
+    // 7. Crear tabla card_abilities (Destrezas / Habilidades) y poblarla con valores iniciales
+    $pdo->exec("CREATE TABLE IF NOT EXISTS card_abilities (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        allowed_types TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    $initialAbilities = [
+        ['name' => 'Líder', 'allowed_types' => 'Jugador'],
+        ['name' => 'Muralla', 'allowed_types' => 'Jugador'],
+        ['name' => 'Capitán', 'allowed_types' => 'Jugador'],
+        ['name' => 'Goleador', 'allowed_types' => 'Jugador'],
+        ['name' => 'Juego Sucio', 'allowed_types' => 'Jugador'],
+        ['name' => 'Humildad', 'allowed_types' => 'Jugador'],
+        ['name' => 'Poder Femenino', 'allowed_types' => 'Jugador'],
+        ['name' => 'Equipo', 'allowed_types' => 'Estrategia'],
+        ['name' => 'Remate', 'allowed_types' => 'Jugada'],
+        ['name' => 'Lujo', 'allowed_types' => 'Jugada'],
+        ['name' => 'Aéreo', 'allowed_types' => 'Jugada'],
+        ['name' => 'Balón Parado', 'allowed_types' => 'Jugada'],
+        ['name' => 'Dribbling', 'allowed_types' => 'Jugada'],
+        ['name' => 'Entrada', 'allowed_types' => 'Foul'],
+        ['name' => 'Superioridad Aérea', 'allowed_types' => 'Foul'],
+        ['name' => 'Empujón', 'allowed_types' => 'Foul'],
+        ['name' => 'Baluarte', 'allowed_types' => 'ALL']
+    ];
+
+    $stmtAbility = $pdo->prepare("INSERT IGNORE INTO card_abilities (name, allowed_types) VALUES (?, ?)");
+    foreach ($initialAbilities as $ab) {
+        $stmtAbility->execute([$ab['name'], $ab['allowed_types']]);
+    }
 } catch (Exception $e) {
     error_log("Error en migraciones automáticas: " . $e->getMessage());
 }

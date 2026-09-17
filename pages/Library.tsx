@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { apiService } from '../services/api';
-import { Card } from '../types';
+import { Card, CardAbility } from '../types';
 import FootballCard from '../components/FootballCard';
 import CardDetailModal from '../components/CardDetailModal';
 import { CardCategory, PlayerPosition, CardRarity } from '../types';
@@ -19,6 +19,8 @@ const Library: React.FC = () => {
   const [activeShirtColor, setActiveShirtColor] = useState<string | 'Limpiar'>('Limpiar');
   const [activeNationality, setActiveNationality] = useState<string | 'Limpiar'>('Limpiar');
   const [activeGender, setActiveGender] = useState<string | 'Limpiar'>('Limpiar');
+  const [activeAbility, setActiveAbility] = useState<string | 'Limpiar'>('Limpiar');
+  const [dbAbilities, setDbAbilities] = useState<CardAbility[]>([]);
   const [minCost, setMinCost] = useState(0);
   const [maxCost, setMaxCost] = useState(10);
   const [selectedRarities, setSelectedRarities] = useState<string[]>([]);
@@ -40,6 +42,12 @@ const Library: React.FC = () => {
         setDbEditions(data.map((e: any) => e.name).filter(Boolean));
       }
     }).catch(err => console.error('Error al obtener ediciones:', err));
+
+    apiService.getCardAbilities().then(data => {
+      if (Array.isArray(data)) {
+        setDbAbilities(data);
+      }
+    }).catch(err => console.error('Error al obtener destrezas:', err));
   }, []);
 
   useEffect(() => {
@@ -68,6 +76,7 @@ const Library: React.FC = () => {
           shirt_color: activeShirtColor === 'Limpiar' ? '' : activeShirtColor,
           nationality: activeNationality === 'Limpiar' ? '' : activeNationality,
           gender: activeGender === 'Limpiar' ? '' : activeGender,
+          ability: activeAbility === 'Limpiar' ? '' : activeAbility,
           min_cost: minCost,
           max_cost: maxCost,
           rarity: selectedRarities.length > 0 ? selectedRarities.join(',') : ''
@@ -84,7 +93,7 @@ const Library: React.FC = () => {
 
     const debounce = setTimeout(fetchCards, 300);
     return () => clearTimeout(debounce);
-  }, [search, activeEdition, activeJoSubcategory, activeType, activeCategory, activePosition, activeShirtColor, activeNationality, activeGender, minCost, maxCost, selectedRarities]);
+  }, [search, activeEdition, activeJoSubcategory, activeType, activeCategory, activePosition, activeShirtColor, activeNationality, activeGender, activeAbility, minCost, maxCost, selectedRarities]);
 
   const editionsList = useMemo(() => {
     const fromCards = filterOptions.map(c => c.edition).filter(Boolean);
@@ -142,6 +151,32 @@ const Library: React.FC = () => {
   const raritiesList = useMemo(() => {
     return ['Amateur', 'Semiprofesional', 'Profesional', 'Clase Mundial', 'Leyenda'];
   }, []);
+
+  const abilitiesList = useMemo(() => {
+    const currentType = (activeType === 'Limpiar' ? '' : activeType).trim().toLowerCase();
+    
+    let filteredDb = dbAbilities;
+    if (currentType) {
+      filteredDb = dbAbilities.filter(ab => {
+        if (!ab.allowed_types || ab.allowed_types === 'ALL') return true;
+        const allowedList = ab.allowed_types.split(',').map(t => t.trim().toLowerCase());
+        return allowedList.some(t => {
+          if (t === currentType) return true;
+          if ((currentType === 'jugada' || currentType === 'jugadas') && (t === 'jugada' || t === 'jugadas')) return true;
+          if ((currentType === 'foul' || currentType === 'fouls') && (t === 'foul' || t === 'fouls')) return true;
+          return false;
+        });
+      });
+    }
+
+    const dbNames = filteredDb.map(a => a.name);
+    const fromCards = filterOptions
+      .filter(c => activeType === 'Limpiar' || c.type === activeType)
+      .flatMap(c => c.ability ? c.ability.split(',').map(a => a.trim()) : []);
+
+    const combined = Array.from(new Set([...dbNames, ...fromCards])).filter(Boolean);
+    return combined.sort((a, b) => a.localeCompare(b));
+  }, [dbAbilities, filterOptions, activeType]);
 
   const rarityOrder: Record<string, number> = {
     'Leyenda': 5,
@@ -203,6 +238,7 @@ const Library: React.FC = () => {
           activeShirtColor={activeShirtColor} setActiveShirtColor={setActiveShirtColor}
           activeNationality={activeNationality} setActiveNationality={setActiveNationality}
           activeGender={activeGender} setActiveGender={setActiveGender}
+          activeAbility={activeAbility} setActiveAbility={setActiveAbility}
           minCost={minCost} setMinCost={setMinCost}
           maxCost={maxCost} setMaxCost={setMaxCost}
           selectedRarities={selectedRarities} toggleRarity={toggleRarity}
@@ -211,6 +247,7 @@ const Library: React.FC = () => {
           categories={categories} positions={positions}
           shirtColors={shirtColors} nationalities={nationalities}
           genders={genders} raritiesList={raritiesList}
+          abilitiesList={abilitiesList}
         />
       </aside>
 
@@ -235,6 +272,7 @@ const Library: React.FC = () => {
               activeShirtColor={activeShirtColor} setActiveShirtColor={setActiveShirtColor}
               activeNationality={activeNationality} setActiveNationality={setActiveNationality}
               activeGender={activeGender} setActiveGender={setActiveGender}
+              activeAbility={activeAbility} setActiveAbility={setActiveAbility}
               minCost={minCost} setMinCost={setMinCost}
               maxCost={maxCost} setMaxCost={setMaxCost}
               selectedRarities={selectedRarities} toggleRarity={toggleRarity} setSelectedRarities={setSelectedRarities}
@@ -243,6 +281,7 @@ const Library: React.FC = () => {
               categories={categories} positions={positions}
               shirtColors={shirtColors} nationalities={nationalities}
               genders={genders} raritiesList={raritiesList}
+              abilitiesList={abilitiesList}
               onFilterApplied={() => setIsFiltersOpen(false)}
             />
           </aside>
@@ -443,6 +482,7 @@ const FilterContent: React.FC<any> = ({
   activeShirtColor, setActiveShirtColor,
   activeNationality, setActiveNationality,
   activeGender, setActiveGender,
+  activeAbility, setActiveAbility,
   minCost, setMinCost,
   maxCost, setMaxCost,
   selectedRarities, toggleRarity, setSelectedRarities,
@@ -450,7 +490,7 @@ const FilterContent: React.FC<any> = ({
   editionsList, typesList,
   categories, positions,
   shirtColors, nationalities,
-  genders, raritiesList,
+  genders, raritiesList, abilitiesList = [],
   onFilterApplied
 }) => {
   return (
@@ -468,6 +508,7 @@ const FilterContent: React.FC<any> = ({
             setActiveShirtColor('Limpiar');
             setActiveNationality('Limpiar');
             setActiveGender('Limpiar');
+            if (setActiveAbility) setActiveAbility('Limpiar');
             setMinCost(0);
             setMaxCost(10);
             setSelectedRarities([]);
@@ -576,7 +617,7 @@ const FilterContent: React.FC<any> = ({
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => { setActiveType('Limpiar'); onFilterApplied?.(); }}
+            onClick={() => { setActiveType('Limpiar'); if (setActiveAbility) setActiveAbility('Limpiar'); onFilterApplied?.(); }}
             className={`px-3 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-tighter text-left ${activeType === 'Limpiar' ? 'bg-[#ffd900]/20 text-[#ffd900] border border-[#ffd900]/40' : 'bg-[#1a2332] text-white/40 border border-transparent'}`}
           >
             TODOS
@@ -585,7 +626,7 @@ const FilterContent: React.FC<any> = ({
             <button
               key={type}
               type="button"
-              onClick={() => { setActiveType(type); onFilterApplied?.(); }}
+              onClick={() => { setActiveType(type); if (setActiveAbility) setActiveAbility('Limpiar'); onFilterApplied?.(); }}
               className={`px-3 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-tighter text-left ${activeType === type ? 'bg-[#ffd900]/20 text-[#ffd900] border border-[#ffd900]/40' : 'bg-[#1a2332] text-white/40 border border-transparent'}`}
             >
               {type}
@@ -694,6 +735,25 @@ const FilterContent: React.FC<any> = ({
             </div>
           )}
         </>
+      )}
+
+      {/* Destreza / Habilidad */}
+      {abilitiesList.length > 0 && (
+        <div className="mb-8 sm:mb-10">
+          <h3 className="text-[11px] font-black uppercase tracking-widest text-white mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm text-[#ffd900]">psychology</span> DESTREZA / HABILIDAD
+          </h3>
+          <select
+            value={activeAbility}
+            onChange={(e) => { setActiveAbility(e.target.value); onFilterApplied?.(); }}
+            className="w-full bg-[#1a2332] border border-white/10 rounded-sm px-3 py-2 text-[10px] font-black uppercase text-white outline-none focus:border-[#ffd900]"
+          >
+            <option value="Limpiar">TODAS</option>
+            {abilitiesList.map((ab: string) => (
+              <option key={ab} value={ab}>{ab}</option>
+            ))}
+          </select>
+        </div>
       )}
 
       {/* Coste Energía */}

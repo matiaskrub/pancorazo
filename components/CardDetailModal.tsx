@@ -179,6 +179,17 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ card, isOpen, onClose
                             </div>
                         )}
 
+                        {card.ability && (
+                            <div>
+                                <h4 className="text-[9px] md:text-[10px] font-black text-white/40 uppercase tracking-widest mb-1.5 flex items-center gap-1.5 md:gap-2">
+                                    <span className="material-symbols-outlined text-xs md:text-sm text-[#ffd900]">psychology</span> DESTREZA / HABILIDAD
+                                </h4>
+                                <span className="inline-block px-3 py-1 bg-[#ffd900]/10 border border-[#ffd900]/30 rounded-sm text-xs font-black text-[#ffd900] uppercase tracking-wider">
+                                    {card.ability}
+                                </span>
+                            </div>
+                        )}
+
                         {card.ability_text && (
                             <div className="p-4 md:p-6 bg-[#ffd900]/5 border border-[#ffd900]/10 rounded-xl relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-2 opacity-5 scale-120 md:scale-150 rotate-12 group-hover:scale-[2] transition-transform duration-700">

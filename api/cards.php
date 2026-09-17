@@ -90,7 +90,7 @@ function getCards($pdo)
         $filters = [];
         $params = [];
 
-        $fields = ['edition', 'type', 'category', 'position', 'shirt_color', 'nationality', 'gender', 'rarity', 'is_hero', 'is_fan'];
+        $fields = ['edition', 'type', 'category', 'position', 'shirt_color', 'nationality', 'gender', 'rarity', 'ability', 'is_hero', 'is_fan'];
 
         // Fields that support multi-select via CSV
         $csvFields = ['rarity', 'type', 'category'];
@@ -115,7 +115,7 @@ function getCards($pdo)
                         $params['edition'] = $edVal;
                         $params['edition_like'] = "%" . $edVal . "%";
                     }
-                } else if ($field === 'shirt_color' || $field === 'nationality' || $field === 'position') {
+                } else if ($field === 'shirt_color' || $field === 'nationality' || $field === 'position' || $field === 'ability') {
                     $filters[] = "$field COLLATE utf8mb4_unicode_ci LIKE :$field";
                     $params[$field] = "%" . $_GET[$field] . "%";
                 } else {

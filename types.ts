@@ -39,7 +39,6 @@ export enum CardCategory {
   STRATEGY = 'ESTRATEGIA',
   FANS = 'HINCHADA',
   ENERGY = 'ENERGÍA',
-  STADIUM = 'ESTADIO',
   ASSISTANT = 'AYUDANTE TÉCNICO'
 }
 
@@ -84,6 +83,13 @@ export interface Card {
   is_hero?: number;
   is_fan?: number;
   orientation?: 'portrait' | 'landscape';
+}
+
+export interface CardAbility {
+  id: number;
+  name: string;
+  allowed_types: string;
+  created_at?: string;
 }
 
 export interface Team {
