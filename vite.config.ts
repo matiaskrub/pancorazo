@@ -19,6 +19,11 @@ export default defineConfig(({ mode }) => {
             target: env.BACKEND_URL || 'https://pancorazo.cl',
             changeOrigin: true,
             secure: false,
+          },
+          '/preventa': {
+            target: env.BACKEND_URL || 'https://pancorazo.cl',
+            changeOrigin: true,
+            secure: false,
           }
         }
       },

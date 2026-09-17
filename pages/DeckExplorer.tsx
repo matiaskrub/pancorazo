@@ -269,7 +269,7 @@ const DeckExplorer: React.FC = () => {
               </h2>
 
               <div className="flex bg-[#121926]/60 border border-white/5 p-1 rounded-sm overflow-x-auto no-scrollbar">
-                {['VER TODAS', 'JUGADOR', 'JUGADA', 'ESTRATEGIA', 'ENERGÍA', 'FOUL', 'HINCHADA'].map((type) => (
+                {['VER TODAS', 'JUGADOR', 'JUGADA', 'ESTRATEGIA', 'ENERGÍA', 'FOUL', 'HINCHADA', 'AYUDANTE TÉCNICO'].map((type) => (
                   <button
                     key={type}
                     onClick={() => setActiveCardType(type)}

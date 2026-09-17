@@ -17,6 +17,7 @@ const TYPE_COLORS: Record<string, string> = {
   'ESTRATEGIA': '#d1d5db', // gris claro
   'HINCHADA': '#ef4444', // rojo
   'ENERGIA': '#ffd700', // amarillo
+  'AYUDANTE TECNICO': '#a855f7', // morado
 };
 
 const RARITY_COLORS: Record<string, string> = {
@@ -74,6 +75,12 @@ const DeckStats: React.FC<DeckStatsProps> = ({ deckItems, canchaCards }) => {
     return category.includes('ENERGIA') || category.includes('ENERGY');
   };
 
+  const isAssistant = (card: Card) => {
+    const category = normalizeText(card.category || card.type || '');
+    const type = normalizeText(card.type || '');
+    return category.includes('AYUDANTE') || type.includes('AYUDANTE');
+  };
+
   // --- Tactical Metrics ---
   const metrics = useMemo(() => {
     let atk = 0;
@@ -91,7 +98,7 @@ const DeckStats: React.FC<DeckStatsProps> = ({ deckItems, canchaCards }) => {
     deckItems.forEach(({ card, q }) => {
       const qty = Number(q);
       
-      if (!isEnergy(card) && Number(card.has_x_cost) !== 1) { // Correct Comparison: Number vs 1
+      if (!isPlayer(card) && !isEnergy(card) && !isAssistant(card) && Number(card.has_x_cost) !== 1) { // Exclude players, energies and assistants
         totalCost += (Number(card.cost) || 0) * qty;
         supportCount += qty;
       }
@@ -114,8 +121,8 @@ const DeckStats: React.FC<DeckStatsProps> = ({ deckItems, canchaCards }) => {
     deckItems.forEach(({ card, q }) => {
       const qty = Number(q);
 
-      // Energy curve (strictly non-players, non-energies)
-      if (!isPlayer(card) && !isEnergy(card)) {
+      // Energy curve (strictly non-players, non-energies, non-assistants)
+      if (!isPlayer(card) && !isEnergy(card) && !isAssistant(card)) {
         const costValue = Number(card.cost);
         if (!isNaN(costValue) && costValue >= 0 && costValue <= 10) {
            energyMap[costValue] += qty;

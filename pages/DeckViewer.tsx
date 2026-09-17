@@ -62,6 +62,13 @@ const DeckViewer: React.FC = () => {
     return category.includes('JUGADOR') || category.includes('PLAYER') || type.includes('JUGADOR');
   };
 
+  const isAssistantCard = (card: Card) => {
+    const type = String(card.type || '').toUpperCase();
+    const category = String(card.category || '').toUpperCase();
+    return type === 'AYUDANTE TÉCNICO' || type === 'AYUDANTE TECNICO' || 
+           category === 'AYUDANTE TÉCNICO' || category === 'AYUDANTE TECNICO';
+  };
+
   const autoDistribute = (players: Card[]) => {
     const cancha: string[] = [];
     const banca: string[] = [];
@@ -128,10 +135,17 @@ const DeckViewer: React.FC = () => {
   const totalCards = Object.values(deckCounts).reduce((a, b) => Number(a) + Number(b), 0);
   
   const playersInDeck = useMemo(() => deckCardsDetailed.filter(item => isPlayerCard(item.card)).map(i => i.card), [deckCardsDetailed]);
-  const supportInDeckItems = useMemo(() => deckCardsDetailed.filter(item => !isPlayerCard(item.card)), [deckCardsDetailed]);
+  const supportInDeckItems = useMemo(() => deckCardsDetailed.filter(item => !isPlayerCard(item.card) && !isAssistantCard(item.card)), [deckCardsDetailed]);
+
+  const assistantInDeck = useMemo(() => {
+    return deckCardsDetailed.find(item => isAssistantCard(item.card))?.card || null;
+  }, [deckCardsDetailed]);
 
   const totalPlayers = Number(playersInDeck.length);
-  const totalSupport = Number(totalCards) - totalPlayers;
+  const totalAssistant = useMemo(() => {
+    return deckCardsDetailed.filter(item => isAssistantCard(item.card)).reduce((acc, item) => acc + Number(item.q), 0);
+  }, [deckCardsDetailed]);
+  const totalSupport = Number(totalCards) - totalPlayers - totalAssistant;
 
   const isLegacyDeck = useMemo(() => {
     return deck && deck.cards && !deck.cards.some((dc: any) => dc.zone === 'cancha' || dc.zone === 'banca');
@@ -425,7 +439,7 @@ const DeckViewer: React.FC = () => {
                     )}
 
                     {/* Banca / Suplentes */}
-                    {bancaCards.length > 0 && (
+                    {(bancaCards.length > 0 || assistantInDeck) && (
                       <div>
                         <h3 className="text-xs font-black uppercase tracking-widest text-[#5ce1e6] mb-4 flex items-center gap-2">
                           <span className="material-symbols-outlined text-sm">chair</span> BANCA SUPLENTE ({bancaCards.length} / 3)
@@ -440,6 +454,18 @@ const DeckViewer: React.FC = () => {
                               />
                             </div>
                           ))}
+                          {assistantInDeck && (
+                            <div key={`banca-assistant-${assistantInDeck.id}`} className="aspect-[3/4.2] relative group flex flex-col items-center justify-between border border-[#a855f7]/30 rounded-lg bg-[#a855f7]/5 p-1">
+                              <span className="text-[6.5px] font-black text-[#a855f7] uppercase tracking-[0.15em] mb-1">Ayudante Técnico</span>
+                              <div className="flex-1 w-full relative rounded overflow-hidden border border-white/10">
+                                <img 
+                                  src={apiService.resolveImageUrl(assistantInDeck.image_url)} 
+                                  alt={assistantInDeck.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -480,6 +506,23 @@ const DeckViewer: React.FC = () => {
                         </div>
                       ))}
                     </div>
+
+                    {assistantInDeck && (
+                      <div className="mt-8 pt-6 border-t border-white/5">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-[#a855f7] mb-4 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-sm">support_agent</span> AYUDANTE TÉCNICO
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4">
+                          <div key={`player-assistant-${assistantInDeck.id}`} className="aspect-[3/4.2] relative group">
+                            <img 
+                              src={apiService.resolveImageUrl(assistantInDeck.image_url)} 
+                              alt={assistantInDeck.name}
+                              className="w-full h-full object-cover rounded-lg border border-[#a855f7]/40 shadow-lg hover:border-[#a855f7]/85 transition-all hover:-translate-y-2 hover:shadow-[#a855f7]/20"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -38,12 +38,23 @@ const CloseTournamentModal: React.FC<CloseTournamentModalProps> = ({ isOpen, onC
             }
 
             // Estadísticas JO (GF, GC, Tarjetas)
-            const sortedByGf = [...standings].sort((a, b) => b.gf - a.gf);
-            const sortedByGc = [...standings].sort((a, b) => a.gc - b.gc);
+            // 1. Goleadores (GF): Todos los que tengan la cantidad máxima de goles a favor (siempre que maxGf > 0)
+            const maxGf = standings.length > 0 ? Math.max(...standings.map((s: any) => Number(s.gf || 0))) : 0;
+            const topScorers = standings
+                .filter((s: any) => Number(s.gf || 0) === maxGf && maxGf > 0)
+                .map((s: any) => String(s.team_id));
+
+            // 2. Mejor Defensa (GC): Todos los que tengan la menor cantidad de goles recibidos
+            const minGc = standings.length > 0 ? Math.min(...standings.map((s: any) => Number(s.gc || 0))) : 0;
+            const bestDefenses = standings
+                .filter((s: any) => Number(s.gc || 0) === minGc)
+                .map((s: any) => String(s.team_id));
+
+            // 3. Juego Limpio (Tarjetas)
             const sortedByCards = [...standings].sort((a, b) => (a.fair_play_score ?? 0) - (b.fair_play_score ?? 0));
 
-            res.topScorer = String(sortedByGf[0]?.team_id || '');
-            res.bestDefense = String(sortedByGc[0]?.team_id || '');
+            res.topScorer = topScorers.join(',');
+            res.bestDefense = bestDefenses.join(',');
             res.fairPlay = String(sortedByCards[0]?.team_id || '');
         }
 
@@ -58,8 +69,8 @@ const CloseTournamentModal: React.FC<CloseTournamentModalProps> = ({ isOpen, onC
     });
 
     const [stats, setStats] = useState({
-        top_scorer_team_id: suggestions?.topScorer || '',
-        best_defense_team_id: suggestions?.bestDefense || '',
+        top_scorer_team_id: suggestions?.topScorer ? suggestions.topScorer.split(',') : ([] as string[]),
+        best_defense_team_id: suggestions?.bestDefense ? suggestions.bestDefense.split(',') : ([] as string[]),
         fair_play_team_id: suggestions?.fairPlay ? [suggestions.fairPlay] : ([] as string[])
     });
 
@@ -154,31 +165,61 @@ const CloseTournamentModal: React.FC<CloseTournamentModalProps> = ({ isOpen, onC
 
                                     <div className="space-y-4">
                                         <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">Más Goles Anotados (GF)</label>
-                                            <select
-                                                value={stats.top_scorer_team_id}
-                                                onChange={(e) => setStats({ ...stats, top_scorer_team_id: e.target.value })}
-                                                className="w-full bg-white/5 border border-white/10 rounded-sm px-4 py-3 text-sm text-white focus:outline-none focus:border-[#ffd900] appearance-none"
-                                            >
-                                                <option value="">Elegir equipo...</option>
-                                                {participants.map((p) => (
-                                                    <option key={p.team_id} value={p.team_id}>{p.team_name}</option>
-                                                ))}
-                                            </select>
+                                            <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] mb-2 block">Más Goles Anotados (GF)</label>
+                                            <div className="max-h-32 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                                                {participants.map((p) => {
+                                                    const isChecked = stats.top_scorer_team_id.includes(String(p.team_id));
+                                                    return (
+                                                        <label key={`ts-${p.team_id}`} className={`flex items-center p-2 rounded-sm cursor-pointer transition-colors ${isChecked ? 'bg-[#ffd900]/10 border border-[#ffd900]/50' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={(e) => {
+                                                                    const checked = e.target.checked;
+                                                                    const id = String(p.team_id);
+                                                                    setStats(prev => ({
+                                                                        ...prev,
+                                                                        top_scorer_team_id: checked 
+                                                                            ? [...prev.top_scorer_team_id, id] 
+                                                                            : prev.top_scorer_team_id.filter(tid => tid !== id)
+                                                                    }));
+                                                                }}
+                                                                className="mr-3 accent-[#ffd900]"
+                                                            />
+                                                            <span className={`text-xs ${isChecked ? 'text-[#ffd900] font-bold' : 'text-white'}`}>{p.team_name}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">Menos Goles Recibidos (GC)</label>
-                                            <select
-                                                value={stats.best_defense_team_id}
-                                                onChange={(e) => setStats({ ...stats, best_defense_team_id: e.target.value })}
-                                                className="w-full bg-white/5 border border-white/10 rounded-sm px-4 py-3 text-sm text-white focus:outline-none focus:border-[#ffd900] appearance-none"
-                                            >
-                                                <option value="">Elegir equipo...</option>
-                                                {participants.map((p) => (
-                                                    <option key={p.team_id} value={p.team_id}>{p.team_name}</option>
-                                                ))}
-                                            </select>
+                                            <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] mb-2 block">Menos Goles Recibidos (GC)</label>
+                                            <div className="max-h-32 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                                                {participants.map((p) => {
+                                                    const isChecked = stats.best_defense_team_id.includes(String(p.team_id));
+                                                    return (
+                                                        <label key={`bd-${p.team_id}`} className={`flex items-center p-2 rounded-sm cursor-pointer transition-colors ${isChecked ? 'bg-[#ffd900]/10 border border-[#ffd900]/50' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={(e) => {
+                                                                    const checked = e.target.checked;
+                                                                    const id = String(p.team_id);
+                                                                    setStats(prev => ({
+                                                                        ...prev,
+                                                                        best_defense_team_id: checked 
+                                                                            ? [...prev.best_defense_team_id, id] 
+                                                                            : prev.best_defense_team_id.filter(tid => tid !== id)
+                                                                    }));
+                                                                }}
+                                                                className="mr-3 accent-[#ffd900]"
+                                                            />
+                                                            <span className={`text-xs ${isChecked ? 'text-[#ffd900] font-bold' : 'text-white'}`}>{p.team_name}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
 
                                         <div className="space-y-2">

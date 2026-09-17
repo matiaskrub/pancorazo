@@ -4,6 +4,7 @@ import { apiService } from '../services/api';
 import { Team, Noticia, User, Card } from '../types';
 import { parseLocalDate } from '../utils/formatters';
 import CreateDeckModal from '../components/CreateDeckModal';
+import { PREVENTA_CONFIG } from '../utils/preventaConfig';
 
 
 const Home: React.FC = () => {
@@ -18,6 +19,7 @@ const Home: React.FC = () => {
   const [currentTournamentIdx, setCurrentTournamentIdx] = useState(0);
   const [timeLeft, setTimeLeft] = useState<{ d: string, h: string, m: string, s: string } | null>(null);
   const [currentHeroCardIdx, setCurrentHeroCardIdx] = useState(0);
+  const [preventaImgIdx, setPreventaImgIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   
   // Create Deck Modal State
@@ -133,6 +135,14 @@ const Home: React.FC = () => {
     }, 8000);
     return () => clearInterval(interval);
   }, [heroCards]);
+
+  useEffect(() => {
+    if (PREVENTA_CONFIG.images.length <= 1) return;
+    const interval = setInterval(() => {
+      setPreventaImgIdx(prev => (prev + 1) % PREVENTA_CONFIG.images.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const getTopThree = () => {
     return [...teams]
@@ -258,6 +268,104 @@ const Home: React.FC = () => {
             )}
             {/* Background Glow */}
             <div className="absolute -z-10 w-[300px] sm:w-[400px] aspect-square bg-[#ffd900]/10 rounded-full blur-[80px] sm:blur-[120px]"></div>
+          </div>
+        </div>
+      </section>
+
+      {/* PREVENTA GLORIA SUDAMERICANA BANNER/CARRUSEL */}
+      <section className="px-4 md:px-10 max-w-7xl mx-auto w-full mb-32">
+        <div className="relative w-full rounded-sm overflow-hidden p-8 md:p-12 border border-[#ffd900]/20 bg-gradient-to-r from-[#121926]/90 to-[#0e1420]/90 backdrop-blur-sm min-h-[450px] flex items-center shadow-[0_0_50px_rgba(255,217,0,0.05)]">
+          
+          {/* Fondo difuminado con brillo amarillo */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[600px] h-[300px] bg-[#ffd900]/5 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+          
+          <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            
+            {/* Texto de Preventa */}
+            <div className="lg:col-span-6 flex flex-col gap-6 text-center lg:text-left">
+              <div className="inline-flex items-center self-center lg:self-start gap-2 px-3 py-1 rounded-full bg-[#ffd900]/10 border border-[#ffd900]/20 text-[#ffd900] text-[10px] font-black uppercase tracking-[0.2em] animate-pulse">
+                <span className="material-symbols-outlined text-xs">shopping_bag</span> Preventa Activa
+              </div>
+              
+              <h2 className="text-4xl sm:text-5xl md:text-6xl font-black uppercase italic leading-[0.95] tracking-tighter text-white">
+                GLORIA <br />
+                <span className="text-[#ffd900]">SUDAMERICANA</span>
+              </h2>
+              
+              <p className="text-xs sm:text-sm text-white/70 max-w-md mx-auto lg:mx-0 font-medium leading-relaxed">
+                ¡Asegura tu preventa de la nueva expansión de Kick On TCG! Consigue cartas exclusivas antes que nadie, potencia tu mazo con los mejores jugadores del continente y prepárate para competir al máximo nivel.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-2">
+                <a 
+                  href={PREVENTA_CONFIG.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="w-full sm:w-auto px-10 py-4 bg-[#ffd900] hover:bg-[#ffed4d] transition-all rounded-sm font-black text-xs sm:text-sm uppercase tracking-widest text-[#101622] text-center shadow-xl shadow-[#ffd900]/10 hover:scale-105 active:scale-95 duration-200"
+                >
+                  Adquirir Preventa
+                </a>
+              </div>
+            </div>
+            
+            {/* Carrusel de Imágenes */}
+            <div className="lg:col-span-6 flex flex-col items-center justify-center relative w-full">
+              <div className="relative w-full max-w-[320px] sm:max-w-[360px] aspect-[2/3] group/carousel">
+                
+                {/* Contenedor de la Imagen Activa */}
+                {PREVENTA_CONFIG.images.map((img, idx) => (
+                  <div
+                    key={img}
+                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                      preventaImgIdx === idx ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                    }`}
+                  >
+                    <div className="w-full h-full p-2 bg-[#101622]/80 border border-white/10 rounded-sm shadow-[0_0_40px_rgba(0,0,0,0.6)] backdrop-blur-md animate-in fade-in duration-500">
+                      <img 
+                        src={apiService.resolveImageUrl(img)} 
+                        alt={`Preventa Card ${idx + 1}`}
+                        className="w-full h-full object-contain rounded-sm transition-transform duration-700 hover:scale-105"
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                {/* Botón Anterior */}
+                <button
+                  onClick={() => setPreventaImgIdx(prev => (prev - 1 + PREVENTA_CONFIG.images.length) % PREVENTA_CONFIG.images.length)}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-20 size-10 rounded-full bg-black/70 border border-white/10 flex items-center justify-center text-white hover:text-[#ffd900] hover:border-[#ffd900] opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-300"
+                  aria-label="Imagen anterior"
+                >
+                  <span className="material-symbols-outlined">chevron_left</span>
+                </button>
+
+                {/* Botón Siguiente */}
+                <button
+                  onClick={() => setPreventaImgIdx(prev => (prev + 1) % PREVENTA_CONFIG.images.length)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-20 size-10 rounded-full bg-black/70 border border-white/10 flex items-center justify-center text-white hover:text-[#ffd900] hover:border-[#ffd900] opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-300"
+                  aria-label="Siguiente imagen"
+                >
+                  <span className="material-symbols-outlined">chevron_right</span>
+                </button>
+
+                {/* Dots del Carrusel */}
+                <div className="absolute -bottom-8 left-0 right-0 flex justify-center gap-1.5 z-20">
+                  {PREVENTA_CONFIG.images.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setPreventaImgIdx(idx)}
+                      className={`size-1.5 rounded-full transition-all duration-300 ${
+                        preventaImgIdx === idx 
+                          ? 'w-6 bg-[#ffd900] shadow-[0_0_8px_rgba(255,217,0,0.5)]' 
+                          : 'bg-white/20 hover:bg-white/40'
+                      }`}
+                      aria-label={`Ir a la imagen ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            
           </div>
         </div>
       </section>

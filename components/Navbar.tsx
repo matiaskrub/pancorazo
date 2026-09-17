@@ -8,6 +8,7 @@ import CreateUserModal from './CreateUserModal';
 import CreateTeamModal from './CreateTeamModal';
 import { User } from '../types';
 import { useCommunityMode } from '../contexts/CommunityContext';
+import { PREVENTA_CONFIG } from '../utils/preventaConfig';
 
 const Navbar: React.FC = () => {
   const location = useLocation();
@@ -68,6 +69,7 @@ const Navbar: React.FC = () => {
 
   const menuItems = useMemo(() => {
     const items = [
+      { name: 'PREVENTA', path: PREVENTA_CONFIG.url, external: true, cta: true },
       { name: 'CARTAS', path: '/library' },
       {
         name: 'MAZOS',
@@ -101,7 +103,7 @@ const Navbar: React.FC = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-[#101622] px-4 md:px-10 py-2 flex items-center justify-between">
       <div className="flex items-center gap-8">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-shrink-0">
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="xl:hidden p-2 text-white/60 hover:text-[#ffd900] transition-colors"
@@ -110,11 +112,11 @@ const Navbar: React.FC = () => {
               {isMenuOpen ? 'close' : 'menu'}
             </span>
           </button>
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-2 group flex-shrink-0">
             <img 
               src={logo} 
               alt="Pancorazo" 
-              className="h-9 w-auto object-contain brightness-110 hover:scale-105 transition-transform duration-300" 
+              className="h-11 w-auto object-contain brightness-110 hover:scale-105 transition-transform duration-300 flex-shrink-0" 
             />
           </Link>
         </div>
@@ -160,6 +162,35 @@ const Navbar: React.FC = () => {
                     </div>
                   </div>
                 </div>
+              );
+            }
+
+            if (item.cta) {
+              return (
+                <a
+                  key={item.path}
+                  href={item.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] font-black uppercase tracking-widest bg-[#ffd900] text-[#101622] hover:bg-[#ffed4d] px-3.5 py-1.5 rounded-sm transition-all duration-300 hover:scale-105 active:scale-95 shadow-md shadow-[#ffd900]/10 flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[14px]">shopping_bag</span>
+                  {item.name}
+                </a>
+              );
+            }
+
+            if (item.external) {
+              return (
+                <a
+                  key={item.path}
+                  href={item.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] font-bold uppercase tracking-wider transition-colors relative text-slate-400 hover:text-[#ffd900] py-4"
+                >
+                  {item.name}
+                </a>
               );
             }
 
@@ -270,6 +301,37 @@ const Navbar: React.FC = () => {
                       ))}
                     </div>
                   </div>
+                );
+              }
+
+              if (item.cta) {
+                return (
+                  <a
+                    key={item.path}
+                    href={item.path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="text-xs font-black uppercase tracking-widest bg-[#ffd900] text-[#101622] hover:bg-[#ffed4d] px-4 py-2.5 rounded-sm transition-all duration-300 text-center flex items-center justify-center gap-2 shadow-lg shadow-[#ffd900]/10 mb-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">shopping_bag</span>
+                    {item.name}
+                  </a>
+                );
+              }
+
+              if (item.external) {
+                return (
+                  <a
+                    key={item.path}
+                    href={item.path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="text-sm font-black italic uppercase tracking-widest transition-colors text-white/60 hover:text-[#ffd900]"
+                  >
+                    {item.name}
+                  </a>
                 );
               }
 

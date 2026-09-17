@@ -39,7 +39,8 @@ export enum CardCategory {
   STRATEGY = 'ESTRATEGIA',
   FANS = 'HINCHADA',
   ENERGY = 'ENERGÍA',
-  STADIUM = 'ESTADIO'
+  STADIUM = 'ESTADIO',
+  ASSISTANT = 'AYUDANTE TÉCNICO'
 }
 
 export enum PlayerPosition {
@@ -203,6 +204,7 @@ export interface Tournament {
   max_teams?: number;
   rules_url?: string;
   banner_url?: string;
+  payment_url?: string;
   has_third_place?: number;
   highlight_settings?: HighlightRule[];
   region_id?: number;

@@ -42,6 +42,8 @@ try {
                 checkAuth();
             } elseif ($data['action'] === 'resolve_claim') {
                 checkAuth(['SUPER_ADMIN', 'ADMIN']);
+            } elseif ($data['action'] === 'update') {
+                checkAuth();
             } else {
                 checkAuth(['SUPER_ADMIN', 'ADMIN', 'EDITOR']);
             }
@@ -266,14 +268,45 @@ function resolveClaim($pdo, $data)
 function updateTeam($pdo, $data)
 {
     try {
+        if (!isset($data['id'])) {
+            sendResponse(["error" => "ID de equipo requerido"], 400);
+        }
         $id = $data['id'];
+
+        // 1. Obtener datos actuales del equipo en la BD
+        $stmtCurrent = $pdo->prepare("SELECT owner_user_id, status, current_elo FROM teams WHERE id = ?");
+        $stmtCurrent->execute([$id]);
+        $currentTeam = $stmtCurrent->fetch();
+
+        if (!$currentTeam) {
+            sendResponse(["error" => "Equipo no encontrado"], 404);
+        }
+
+        // 2. Requerir autenticación y validar permisos
+        $currentUser = checkAuth();
+        $isPrivileged = in_array($currentUser['global_role'], ['SUPER_ADMIN', 'ADMIN', 'EDITOR']);
+        $isOwner = (string)$currentTeam['owner_user_id'] === (string)$currentUser['id'];
+
+        if (!$isPrivileged && !$isOwner) {
+            sendResponse(["error" => "No tienes permisos para modificar este equipo."], 403);
+        }
+
         $name = $data['name'];
         $short_name = $data['short_name'];
         $logo_url = $data['logo_url'] ?? null;
         $banner_url = $data['banner_url'] ?? null;
         $founded_year = $data['founded_year'];
-        $status = $data['status'] ?? 'ACTIVE';
-        $current_elo = $data['current_elo'] ?? 1000;
+
+        // 3. Bloquear alteración de ELO y estado si el usuario no es Super Admin o Admin
+        $isAdmin = in_array($currentUser['global_role'], ['SUPER_ADMIN', 'ADMIN']);
+        if ($isAdmin) {
+            $status = $data['status'] ?? $currentTeam['status'];
+            $current_elo = $data['current_elo'] ?? $currentTeam['current_elo'];
+        } else {
+            // Mantener valores de la base de datos
+            $status = $currentTeam['status'];
+            $current_elo = $currentTeam['current_elo'];
+        }
 
         // El slug NO se actualiza aquí para mantenerlo permanente aunque cambie el nombre
         $stmt = $pdo->prepare("UPDATE teams SET name = ?, short_name = ?, logo_url = ?, banner_url = ?, founded_year = ?, status = ?, current_elo = ? WHERE id = ?");

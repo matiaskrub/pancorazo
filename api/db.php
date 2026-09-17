@@ -9,17 +9,40 @@ require_once 'config.php';
 // Cambiamos el nombre de la sesión para evitar conflictos
 session_name('PANCORAZO_SESSION');
 
+// Ajustar duración de sesión en el servidor a 30 días
+ini_set('session.gc_maxlifetime', 86400 * 30);
+ini_set('session.cookie_lifetime', 86400 * 30);
+
+// Configurar directorio local seguro para sesiones para evitar que la limpieza
+// del servidor compartido de cPanel borre las sesiones antes de tiempo.
+$sessionPath = __DIR__ . '/sessions';
+if (!is_dir($sessionPath)) {
+    @mkdir($sessionPath, 0700, true);
+}
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    if (!file_exists($sessionPath . '/.htaccess')) {
+        @file_put_contents($sessionPath . '/.htaccess', "Deny from all\n");
+    }
+    session_save_path($sessionPath);
+}
+
+// Detectar dinámicamente si es una conexión segura HTTPS
+$isHttps = (isset($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] === 'on' || $_SERVER['HTTPS'] == 1))
+    || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
 if (PHP_VERSION_ID >= 70300) {
     session_set_cookie_params([
         'lifetime' => 86400 * 30, // 30 días
         'path' => '/',
-        'secure' => true,
+        'secure' => $isHttps,
         'httponly' => true,
-        'samesite' => 'None',
+        'samesite' => $isHttps ? 'None' : 'Lax',
     ]);
 } else {
     // Fallback para PHP < 7.3
-    session_set_cookie_params(0, '/; SameSite=None; Secure', '', true, true);
+    $samesiteVal = $isHttps ? 'None' : 'Lax';
+    $secureFlag = $isHttps ? '; Secure' : '';
+    session_set_cookie_params(86400 * 30, "/; SameSite={$samesiteVal}{$secureFlag}", '', $isHttps, true);
 }
 
 if (!@session_start(['allowed_classes' => false])) {
@@ -140,6 +163,11 @@ try {
         $pdo->exec("ALTER TABLE tournaments ADD COLUMN created_by_user_id INT NULL");
     }
 
+    $stmt = $pdo->query("SHOW COLUMNS FROM tournaments LIKE 'payment_url'");
+    if ($stmt !== false && !$stmt->fetch()) {
+        $pdo->exec("ALTER TABLE tournaments ADD COLUMN payment_url VARCHAR(255) NULL");
+    }
+
     // 4. Modificar el tipo de tournament_level para ser VARCHAR y soportar barrio/ascenso/oro
     $pdo->exec("ALTER TABLE tournaments MODIFY COLUMN tournament_level VARCHAR(20) DEFAULT 'barrio'");
 
@@ -152,6 +180,28 @@ try {
     $stmt = $pdo->query("SHOW COLUMNS FROM tournament_standings LIKE 'fair_play_score'");
     if ($stmt !== false && !$stmt->fetch()) {
         $pdo->exec("ALTER TABLE tournament_standings ADD COLUMN fair_play_score INT DEFAULT 0");
+    }
+
+    // 6. Crear tabla card_editions si no existe y poblarla
+    $pdo->exec("CREATE TABLE IF NOT EXISTS card_editions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    $countEditions = $pdo->query("SELECT COUNT(*) FROM card_editions")->fetchColumn();
+    if ($countEditions == 0) {
+        // Insertar ediciones que ya existan en las cartas
+        $pdo->exec("INSERT IGNORE INTO card_editions (name) 
+                    SELECT DISTINCT edition FROM cards 
+                    WHERE edition IS NOT NULL AND edition != ''");
+        
+        // Asegurar que existan al menos las básicas
+        $basicEditions = ['El Debut', 'Clase Mundial', 'JO', 'KOIV', 'KOVR'];
+        $stmtInsert = $pdo->prepare("INSERT IGNORE INTO card_editions (name) VALUES (?)");
+        foreach ($basicEditions as $be) {
+            $stmtInsert->execute([$be]);
+        }
     }
 } catch (Exception $e) {
     error_log("Error en migraciones automáticas: " . $e->getMessage());
@@ -215,6 +265,39 @@ function logAudit($pdo, $userId, $action, $targetType, $targetId, $oldValue = nu
         ]);
     } catch (Exception $e) {
         error_log("Error in logAudit: " . $e->getMessage());
+    }
+}
+
+/**
+ * Verifica si una columna existe en una tabla de la base de datos.
+ */
+if (!function_exists('columnExists')) {
+    function columnExists($pdo, $table, $column) {
+        if (!($pdo instanceof PDO)) {
+            if ($column instanceof PDO) {
+                $temp = $pdo;
+                $pdo = $column;
+                $column = $table;
+                $table = $temp;
+            } else {
+                global $pdo;
+                if (!($pdo instanceof PDO)) {
+                    return false;
+                }
+            }
+        }
+        try {
+            $table = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
+            $column = preg_replace('/[^a-zA-Z0-9_]/', '', $column);
+            if (empty($table) || empty($column)) {
+                return false;
+            }
+            $stmt = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+            $stmt->execute([$column]);
+            return $stmt->fetch() !== false;
+        } catch (Exception $e) {
+            return false;
+        }
     }
 }
 

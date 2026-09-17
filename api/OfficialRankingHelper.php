@@ -5,16 +5,6 @@
  */
 
 function ensureOfficialRankingSchema($pdo) {
-    // Evitar hacer DDLs si la tabla ya existe para no provocar un Implicit Commit en MySQL
-    try {
-        $stmt = $pdo->query("SHOW TABLES LIKE 'official_ranking_history'");
-        if ($stmt->fetch() !== false) {
-            return; // La tabla ya existe, asumimos que el esquema está completo
-        }
-    } catch (Exception $e) {
-        // En caso de error en la consulta de verificación, continuamos con precaución
-    }
-
     // 1. Añadir tournament_level a tournaments
     try {
         $pdo->exec("ALTER TABLE tournaments ADD COLUMN tournament_level ENUM('tienda', 'regional', 'nacional') DEFAULT 'tienda'");
@@ -25,6 +15,14 @@ function ensureOfficialRankingSchema($pdo) {
         $pdo->exec("ALTER TABLE tournaments MODIFY COLUMN fair_play_team_id VARCHAR(255) NULL");
     } catch (Exception $e) {}
 
+    // Modificar top_scorer_team_id y best_defense_team_id a VARCHAR(255) para soportar múltiples equipos en caso de empate
+    try {
+        $pdo->exec("ALTER TABLE tournaments MODIFY COLUMN top_scorer_team_id VARCHAR(255) NULL");
+    } catch (Exception $e) {}
+    try {
+        $pdo->exec("ALTER TABLE tournaments MODIFY COLUMN best_defense_team_id VARCHAR(255) NULL");
+    } catch (Exception $e) {}
+
     // 3. Añadir columnas a teams
     try {
         $pdo->exec("ALTER TABLE teams ADD COLUMN official_ranking_points DECIMAL(10,2) DEFAULT 0.00");
@@ -32,6 +30,16 @@ function ensureOfficialRankingSchema($pdo) {
     try {
         $pdo->exec("ALTER TABLE teams ADD COLUMN official_legacy_count INT DEFAULT 0");
     } catch (Exception $e) {}
+
+    // Evitar hacer DDLs si la tabla ya existe para no provocar un Implicit Commit en MySQL
+    try {
+        $stmt = $pdo->query("SHOW TABLES LIKE 'official_ranking_history'");
+        if ($stmt->fetch() !== false) {
+            return; // La tabla ya existe, asumimos que el esquema está completo
+        }
+    } catch (Exception $e) {
+        // En caso de error en la consulta de verificación, continuamos con precaución
+    }
 
     // 4. Crear tabla official_ranking_history
     try {
@@ -191,8 +199,45 @@ function processOfficialRanking($pdo, $tournamentId, $stats, $tournamentLevel, $
     if ($tournamentLevel === 'regional' || $tournamentLevel === 'ascenso') $levelMultiplier = 1.5;
     if ($tournamentLevel === 'nacional' || $tournamentLevel === 'oro') $levelMultiplier = 2.0;
 
-    $topScorerId = $stats['top_scorer_team_id'] ?? null;
-    $bestDefenseId = $stats['best_defense_team_id'] ?? null;
+    $topScorerIds = [];
+    if (!empty($stats['top_scorer_team_id'])) {
+        if (is_array($stats['top_scorer_team_id'])) {
+            foreach ($stats['top_scorer_team_id'] as $part) {
+                $partTrim = trim((string)$part);
+                if ($partTrim !== '') {
+                    $topScorerIds[] = (int)$partTrim;
+                }
+            }
+        } else {
+            $parts = explode(',', (string)$stats['top_scorer_team_id']);
+            foreach ($parts as $part) {
+                $partTrim = trim($part);
+                if ($partTrim !== '') {
+                    $topScorerIds[] = (int)$partTrim;
+                }
+            }
+        }
+    }
+
+    $bestDefenseIds = [];
+    if (!empty($stats['best_defense_team_id'])) {
+        if (is_array($stats['best_defense_team_id'])) {
+            foreach ($stats['best_defense_team_id'] as $part) {
+                $partTrim = trim((string)$part);
+                if ($partTrim !== '') {
+                    $bestDefenseIds[] = (int)$partTrim;
+                }
+            }
+        } else {
+            $parts = explode(',', (string)$stats['best_defense_team_id']);
+            foreach ($parts as $part) {
+                $partTrim = trim($part);
+                if ($partTrim !== '') {
+                    $bestDefenseIds[] = (int)$partTrim;
+                }
+            }
+        }
+    }
     
     // Obtener los IDs de equipos de Fair Play seleccionados por el usuario
     $fairPlayIds = [];
@@ -306,10 +351,10 @@ function processOfficialRanking($pdo, $tournamentId, $stats, $tournamentLevel, $
               -- Regla de Región: si el torneo tiene regiones permitidas, la región del equipo debe estar en la lista
               AND (
                   NOT EXISTS (SELECT 1 FROM tournament_regions trg WHERE trg.tournament_id = t.id)
-                  OR (:team_region IS NOT NULL AND EXISTS (
+                  OR EXISTS (
                       SELECT 1 FROM tournament_regions trg 
                       WHERE trg.tournament_id = t.id AND trg.region_id = :team_region
-                  ))
+                  )
               )
             ORDER BY t.end_date DESC 
             LIMIT 2
@@ -381,13 +426,21 @@ function processOfficialRanking($pdo, $tournamentId, $stats, $tournamentLevel, $
                 $bonosAplicados[] = "4° Lugar (+10%)";
             }
         }
-        if ($topScorerId == $teamId) {
+        if (in_array((int)$teamId, $topScorerIds) || in_array((string)$teamId, $topScorerIds)) {
             $bonusDesempeno += 0.20;
-            $bonosAplicados[] = "Goleador (+20%)";
+            if (count($topScorerIds) > 1) {
+                $bonosAplicados[] = "Goleador Compartido (+20%)";
+            } else {
+                $bonosAplicados[] = "Goleador (+20%)";
+            }
         }
-        if ($bestDefenseId == $teamId) {
+        if (in_array((int)$teamId, $bestDefenseIds) || in_array((string)$teamId, $bestDefenseIds)) {
             $bonusDesempeno += 0.20;
-            $bonosAplicados[] = "Muro (+20%)";
+            if (count($bestDefenseIds) > 1) {
+                $bonosAplicados[] = "Muro Compartido (+20%)";
+            } else {
+                $bonosAplicados[] = "Muro (+20%)";
+            }
         }
 
         // Fair Play

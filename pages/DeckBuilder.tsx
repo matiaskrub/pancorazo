@@ -380,6 +380,8 @@ const DeckBuilder2: React.FC = () => {
           } else if (bancaPlayers.includes(String(id))) {
             zone = 'banca';
           }
+        } else if (isAssistantCard(card)) {
+          zone = 'banca';
         }
         for (let i = 0; i < qty; i++) {
           allCardsData.push({ 
@@ -455,6 +457,13 @@ const DeckBuilder2: React.FC = () => {
     return category.includes('JUGADOR') || category.includes('PLAYER') || type.includes('JUGADOR');
   };
 
+  const isAssistantCard = (card: Card) => {
+    const type = String(card.type || '').toUpperCase();
+    const category = String(card.category || '').toUpperCase();
+    return type === 'AYUDANTE TÉCNICO' || type === 'AYUDANTE TECNICO' || 
+           category === 'AYUDANTE TÉCNICO' || category === 'AYUDANTE TECNICO';
+  };
+
   const isEnergyCard = (card: Card) => {
     const category = String(card.category || '').toUpperCase();
     const type = String(card.type || '').toUpperCase();
@@ -470,6 +479,7 @@ const DeckBuilder2: React.FC = () => {
   const getMaxAllowed = (card: Card) => {
     if (Number(card.is_unlimited) === 1) return Infinity;
     if (isPlayerCard(card)) return 1;
+    if (isAssistantCard(card)) return 1;
     
     const rarity = String(card.rarity || '').toUpperCase();
     if (rarity.includes('LEYENDA')) return 1;
@@ -576,10 +586,17 @@ const DeckBuilder2: React.FC = () => {
     setDistributedForDeckId(deckId);
   }, [playersInDeck, deckId, distributedForDeckId, deckIdFromUrl]);
 
-  const supportInDeckItems = useMemo(() => deckCardsDetailed.filter(item => !isPlayerCard(item.card)), [deckCardsDetailed]);
+  const supportInDeckItems = useMemo(() => deckCardsDetailed.filter(item => !isPlayerCard(item.card) && !isAssistantCard(item.card)), [deckCardsDetailed]);
+
+  const assistantInDeck = useMemo(() => {
+    return deckCardsDetailed.find(item => isAssistantCard(item.card))?.card || null;
+  }, [deckCardsDetailed]);
 
   const totalPlayers = Number(playersInDeck.length);
-  const totalSupport = Number(totalCards) - totalPlayers;
+  const totalAssistant = useMemo(() => {
+    return deckCardsDetailed.filter(item => isAssistantCard(item.card)).reduce((acc, item) => acc + Number(item.q), 0);
+  }, [deckCardsDetailed]);
+  const totalSupport = Number(totalCards) - totalPlayers - totalAssistant;
 
   const canchaCards = useMemo(() => {
     return playersInDeck.filter(p => canchaPlayers.includes(String(p.id)));
@@ -819,6 +836,14 @@ const DeckBuilder2: React.FC = () => {
       return;
     }
 
+    if (isAssistantCard(card)) {
+      const currentAssistant = deckCardsDetailed.find(item => isAssistantCard(item.card));
+      if (currentAssistant && currentAssistant.q >= 1) {
+        alert("Solo puedes tener un ayudante técnico en el mazo.");
+        return;
+      }
+    }
+
     if (isPlayerCard(card) && totalPlayers >= 12) {
       alert("Máximo 12 jugadores.");
       return;
@@ -860,10 +885,11 @@ const DeckBuilder2: React.FC = () => {
   };
 
   const moveToCancha = (cardId: string) => {
-    const player = playersInDeck.find(p => String(p.id) === String(cardId));
+    const idStr = String(cardId);
+    const player = playersInDeck.find(p => String(p.id) === idStr);
     if (!player) return;
 
-    if (canchaPlayers.includes(cardId)) return;
+    if (canchaPlayers.map(String).includes(idStr)) return;
 
     const pPos = (player.position || '').toUpperCase();
 
@@ -903,15 +929,16 @@ const DeckBuilder2: React.FC = () => {
       return;
     }
 
-    setBancaPlayers(prev => prev.filter(id => String(id) !== String(cardId)));
-    setCanchaPlayers(prev => [...prev.filter(id => String(id) !== String(cardId)), cardId]);
+    setBancaPlayers(prev => prev.map(String).filter(id => id !== idStr));
+    setCanchaPlayers(prev => [...prev.map(String).filter(id => id !== idStr), idStr]);
   };
 
   const moveToBanca = (cardId: string) => {
-    const player = playersInDeck.find(p => String(p.id) === String(cardId));
+    const idStr = String(cardId);
+    const player = playersInDeck.find(p => String(p.id) === idStr);
     if (!player) return;
 
-    if (bancaPlayers.includes(cardId)) return;
+    if (bancaPlayers.map(String).includes(idStr)) return;
 
     const pPos = (player.position || '').toUpperCase();
 
@@ -932,13 +959,14 @@ const DeckBuilder2: React.FC = () => {
       return;
     }
 
-    setCanchaPlayers(prev => prev.filter(id => String(id) !== String(cardId)));
-    setBancaPlayers(prev => [...prev.filter(id => String(id) !== String(cardId)), cardId]);
+    setCanchaPlayers(prev => prev.map(String).filter(id => id !== idStr));
+    setBancaPlayers(prev => [...prev.map(String).filter(id => id !== idStr), idStr]);
   };
 
   const moveToPool = (cardId: string) => {
-    setCanchaPlayers(prev => prev.filter(id => String(id) !== String(cardId)));
-    setBancaPlayers(prev => prev.filter(id => String(id) !== String(cardId)));
+    const idStr = String(cardId);
+    setCanchaPlayers(prev => prev.map(String).filter(id => id !== idStr));
+    setBancaPlayers(prev => prev.map(String).filter(id => id !== idStr));
   };
 
   const handleDropToCancha = (e: React.DragEvent) => {
@@ -985,6 +1013,8 @@ const DeckBuilder2: React.FC = () => {
         } else if (bancaPlayers.includes(String(id))) {
           zone = 'banca';
         }
+      } else if (isAssistantCard(card)) {
+        zone = 'banca';
       }
       // Repeat current card qty times for the array
       for (let i = 0; i < qty; i++) {
@@ -1062,6 +1092,8 @@ const DeckBuilder2: React.FC = () => {
           } else if (bancaPlayers.includes(String(id))) {
             zone = 'banca';
           }
+        } else if (isAssistantCard(card)) {
+          zone = 'banca';
         }
         for (let i = 0; i < qty; i++) {
           allCardsData.push({ 
@@ -1300,7 +1332,7 @@ const DeckBuilder2: React.FC = () => {
                {/* Categoría Multi-Select Toggle Buttons */}
                <div className="flex items-center gap-0.5 bg-[#1a2332] border border-white/10 rounded-lg p-0.5">
                  <span className="text-[8px] font-black text-white/30 uppercase px-1.5 select-none">Tipo</span>
-                 {['Jugador', 'Jugada', 'Foul', 'Estrategia', 'Hinchada', 'Energía'].map(c => (
+                 {['Jugador', 'Jugada', 'Foul', 'Estrategia', 'Hinchada', 'Energía', 'Ayudante Técnico'].map(c => (
                    <button 
                      key={c}
                      onClick={() => setActiveTypes(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])}
@@ -1502,6 +1534,19 @@ const DeckBuilder2: React.FC = () => {
                               />
                            ))}
                            
+                           {assistantInDeck && (
+                              <div className="flex flex-col items-center gap-1 border-t border-white/5 pt-4 w-full">
+                                 <span className="text-[7.5px] font-black text-[#a855f7] uppercase tracking-[0.2em] mb-1">Ayudante Técnico</span>
+                                 <TacticalCard 
+                                    key={`banca-assistant-${assistantInDeck.id}`}
+                                    card={assistantInDeck}
+                                    location="banca"
+                                    onMoveToPool={() => handleRemoveCard(assistantInDeck)}
+                                    onShowDetails={() => { setSelectedCard(assistantInDeck); setIsDetailModalOpen(true); }}
+                                 />
+                              </div>
+                           )}
+                           
                            {bancaPlayers.length === 0 && (
                               <div className="w-full flex-1 border border-dashed border-white/10 rounded-xl bg-white/2 flex flex-col items-center justify-center text-white/10 p-6 text-center select-none min-h-[150px]">
                                  <span className="material-symbols-outlined text-2xl mb-1 opacity-20">chair</span>
@@ -1616,7 +1661,7 @@ const DeckBuilder2: React.FC = () => {
                        <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">MAZO DE APOYO <span className="text-[#5ce1e6]/40 ml-2">[{totalSupport}/45]</span></h2>
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-y-8 gap-x-6 pt-6 pl-6">
-                       {sortedDeckItems.filter(i => !isPlayerCard(i.card)).map(({card, q}) => (
+                       {sortedDeckItems.filter(i => !isPlayerCard(i.card) && !isAssistantCard(i.card)).map(({card, q}) => (
                           <div key={`deck-support-${card.id}`} className="relative group aspect-[3/4.2] transition-transform duration-300 hover:-translate-y-2 hover:scale-105">
                              {/* Cartas Apiladas */}
                              {Array.from({ length: Math.min(q, 4) }).map((_, j) => {
@@ -1806,6 +1851,15 @@ const DeckBuilder2: React.FC = () => {
                  </div>
                  <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                     <div className={`h-full transition-all duration-700 ${totalPlayers >= 10 && totalPlayers <= 12 ? 'bg-green-500' : 'bg-[#ffd900]'}`} style={{ width: `${Math.min(100, (totalPlayers/12)*100)}%` }}></div>
+                 </div>
+              </div>
+              <div className="space-y-2">
+                 <div className="flex justify-between items-end">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Ayudante Técnico</span>
+                    <span className={`text-xs font-black ${totalAssistant === 1 ? 'text-[#a855f7]' : 'text-white'}`}>{totalAssistant}/1</span>
+                 </div>
+                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div className={`h-full transition-all duration-700 bg-[#a855f7]`} style={{ width: `${(totalAssistant/1)*100}%` }}></div>
                  </div>
               </div>
               <div className="space-y-2">

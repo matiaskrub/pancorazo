@@ -355,7 +355,8 @@ function getTopCards($pdo, $type = null) {
 
 function saveDeck($pdo, $data) {
     try {
-        $pdo->beginTransaction();
+        // 1. Requerir autenticación usando checkAuth()
+        $currentUser = checkAuth();
 
         $id = $data['id'] ?? null;
         $name = $data['name'];
@@ -364,8 +365,24 @@ function saveDeck($pdo, $data) {
         $lastUpdatedAt = $data['last_updated_at'] ?? null;
         $force = isset($data['force']) && $data['force'] === true;
 
+        // Validar permisos del usuario
+        if ((string)$userId !== (string)$currentUser['id'] && !in_array($currentUser['global_role'], ['SUPER_ADMIN', 'ADMIN'])) {
+            sendResponse(["error" => "No tienes permisos para guardar mazos de otro usuario."], 403);
+            return;
+        }
+
+        // Validar propiedad del mazo si es edición
+        if ($id) {
+            $stmt_owner = $pdo->prepare("SELECT user_id FROM decks WHERE id = ?");
+            $stmt_owner->execute([(int)$id]);
+            $ownerId = $stmt_owner->fetchColumn();
+            if ($ownerId && (string)$ownerId !== (string)$currentUser['id'] && !in_array($currentUser['global_role'], ['SUPER_ADMIN', 'ADMIN'])) {
+                sendResponse(["error" => "No tienes permisos para modificar este mazo."], 403);
+                return;
+            }
+        }
+
         if ($id && isDeckLocked($pdo, $id)) {
-            $pdo->rollBack();
             sendResponse(["error" => "Este mazo está bloqueado y no puede editarse porque pertenece a un torneo finalizado."], 403);
             return;
         }
@@ -381,7 +398,6 @@ function saveDeck($pdo, $data) {
                 $client_ts = strtotime($lastUpdatedAt);
                 
                 if ($db_ts > $client_ts + 1) {
-                    $pdo->rollBack();
                     sendResponse([
                         "error" => "CONFLICT",
                         "message" => "El mazo en la nube es más reciente que tu versión local.",
@@ -392,6 +408,8 @@ function saveDeck($pdo, $data) {
             }
         }
         
+        $pdo->beginTransaction();
+
         // Manejo flexible de status (por compatibilidad con is_active antiguo si se desea)
         $status = $data['status'] ?? 'DRAFT';
         $format = $data['format'] ?? 'Pichanga';
@@ -467,11 +485,23 @@ function saveDeck($pdo, $data) {
 
 function deleteDeck($pdo, $id) {
     try {
+        // 1. Requerir autenticación usando checkAuth()
+        $currentUser = checkAuth();
+
         if ($id && isDeckLocked($pdo, $id)) {
             sendResponse(["error" => "Este mazo está bloqueado y no puede eliminarse porque pertenece a un torneo finalizado."], 403);
             return;
         }
-        // Asumiendo que hay una sesión para validar el dueño, pero aquí simplificamos
+
+        // Validar propiedad del mazo
+        $stmt_owner = $pdo->prepare("SELECT user_id FROM decks WHERE id = ?");
+        $stmt_owner->execute([(int)$id]);
+        $ownerId = $stmt_owner->fetchColumn();
+        if ($ownerId && (string)$ownerId !== (string)$currentUser['id'] && !in_array($currentUser['global_role'], ['SUPER_ADMIN', 'ADMIN'])) {
+            sendResponse(["error" => "No tienes permisos para eliminar este mazo."], 403);
+            return;
+        }
+
         $stmt = $pdo->prepare("DELETE FROM decks WHERE id = ?");
         $stmt->execute([$id]);
         sendResponse(["message" => "Mazo eliminado"]);
@@ -482,11 +512,9 @@ function deleteDeck($pdo, $id) {
 
 function likeDeck($pdo, $id) {
     try {
-        $userId = $_GET['user_id'] ?? null;
-        if (!$userId) {
-            sendResponse(["error" => "Usuario requerido para dar like"], 400);
-            return;
-        }
+        // 1. Requerir autenticación usando checkAuth()
+        $currentUser = checkAuth();
+        $userId = $currentUser['id'];
 
         $pdo->beginTransaction();
 

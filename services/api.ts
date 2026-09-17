@@ -2,7 +2,34 @@ import { Card, Noticia } from '../types';
 
 const API_URL = '/api';
 
+// Interceptor global de fetch para manejar sesiones expiradas (401 Unauthorized)
+const originalFetch = window.fetch;
+window.fetch = async function (input, init) {
+  const response = await originalFetch.apply(this, [input, init]);
+  if (response.status === 401) {
+    const url = typeof input === 'string' ? input : (input instanceof Request ? input.url : '');
+    const isSessionCheck = url.includes('action=session');
+    const isLoginCheck = url.includes('action=login');
+    
+    if (localStorage.getItem('user') && !isSessionCheck && !isLoginCheck) {
+      localStorage.removeItem('user');
+      alert('Su sesión ha expirado. Por favor, inicie sesión nuevamente.');
+      window.location.href = '#/profile';
+      window.location.reload();
+    }
+  }
+  return response;
+};
+
 export const apiService = {
+  async verifySession() {
+    const response = await fetch(`${API_URL}/users.php?action=session`, { credentials: 'include' });
+    if (response.status === 401) {
+      return { session: false };
+    }
+    if (!response.ok) throw new Error('Error al verificar sesión');
+    return response.json();
+  },
   async getTeams(onlyUnclaimed: boolean = false, showAll: boolean = false, search?: string, basic: boolean = false) {
     let url = `${API_URL}/teams.php`;
     const params = new URLSearchParams();
@@ -864,6 +891,66 @@ export const apiService = {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || result.message || 'Error al actualizar la temporada');
+    return result;
+  },
+
+  async getCardEditions(): Promise<any[]> {
+    const response = await fetch(`${API_URL}/card_editions.php?_t=${Date.now()}`, { credentials: 'include' });
+    if (!response.ok) return [];
+    return response.json();
+  },
+
+  async createCardEdition(name: string) {
+    const response = await fetch(`${API_URL}/card_editions.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create', name }),
+      credentials: 'include'
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || result.message || 'Error al crear la edición');
+    return result;
+  },
+
+  async updateCardEdition(id: number | string, name: string) {
+    const response = await fetch(`${API_URL}/card_editions.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update', id, name }),
+      credentials: 'include'
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || result.message || 'Error al actualizar la edición');
+    return result;
+  },
+
+  async deleteCardEdition(id: number | string) {
+    const response = await fetch(`${API_URL}/card_editions.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', id }),
+      credentials: 'include'
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || result.message || 'Error al eliminar la edición');
+    return result;
+  },
+
+  async getProposedPlayoffs(tournamentId: string | number) {
+    const response = await fetch(`${API_URL}/tournaments.php?action=get_proposed_playoffs&id=${tournamentId}`, { credentials: 'include' });
+    if (!response.ok) throw new Error('Error al obtener la propuesta de eliminatorias');
+    return response.json();
+  },
+
+  async generatePlayoffs(tournamentId: string | number, payload: any) {
+    const response = await fetch(`${API_URL}/tournaments.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'generate_playoffs', id: tournamentId, pairings: payload }),
+      credentials: 'include'
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || result.message || 'Error al generar eliminatorias');
     return result;
   }
 };

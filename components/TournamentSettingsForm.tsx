@@ -26,6 +26,7 @@ const TournamentSettingsForm: React.FC<TournamentSettingsFormProps> = ({ tournam
     const [noLimit, setNoLimit] = useState(Number(tournament.max_teams) === 99);
     const [hasThirdPlace, setHasThirdPlace] = useState(Number((tournament as any).has_third_place) === 1);
     const [loading, setLoading] = useState(false);
+    const [paymentUrl, setPaymentUrl] = useState((tournament as any).payment_url || '');
 
     const savedUser = localStorage.getItem('user');
     const currentUser = savedUser ? JSON.parse(savedUser) : null;
@@ -61,6 +62,7 @@ const TournamentSettingsForm: React.FC<TournamentSettingsFormProps> = ({ tournam
         setIsInvitational(Number(tournament.is_invitational) === 1);
         setTournamentType((tournament as any).tournament_type || 'barrio');
         setCompetitivenessLevel((tournament as any).competitiveness_level || 'semiprofesional');
+        setPaymentUrl((tournament as any).payment_url || '');
     }, [tournament]);
 
     useEffect(() => {
@@ -103,6 +105,7 @@ const TournamentSettingsForm: React.FC<TournamentSettingsFormProps> = ({ tournam
                 has_third_place: hasThirdPlace ? 1 : 0,
                 banner_url: tournament.banner_url || null,
                 rules_url: tournament.rules_url || null,
+                payment_url: paymentUrl || null,
                 highlight_settings: highlightSettings,
                 region_id: allowedRegions.length === 1 ? allowedRegions[0] : null,
                 allowed_regions: allowedRegions,
@@ -415,6 +418,17 @@ const TournamentSettingsForm: React.FC<TournamentSettingsFormProps> = ({ tournam
                             value={prizes}
                             onChange={(e) => setPrizes(e.target.value)}
                             placeholder="Ej: gloria eterna, 1000 Oro..."
+                            className="w-full bg-black/40 border border-white/10 p-4 text-white text-sm focus:outline-none focus:border-[#ffd900] transition-all"
+                        />
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Link de Pago (Inscripción)</label>
+                        <input
+                            type="text"
+                            value={paymentUrl}
+                            onChange={(e) => setPaymentUrl(e.target.value)}
+                            placeholder="Ej: https://mercadopago.cl/link-de-pago"
                             className="w-full bg-black/40 border border-white/10 p-4 text-white text-sm focus:outline-none focus:border-[#ffd900] transition-all"
                         />
                     </div>

@@ -40,6 +40,7 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
     const [selectedNationalities, setSelectedNationalities] = useState<string[]>(['Chile']);
     const [selectedShirtColors, setSelectedShirtColors] = useState<string[]>(['Sin color']);
     const [isSeleccion, setIsSeleccion] = useState(false);
+    const [editions, setEditions] = React.useState<any[]>([]);
 
     React.useEffect(() => {
         if (initialData && isOpen) {
@@ -112,6 +113,19 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
             setImageFile(null);
         }
     }, [initialData, isOpen]);
+
+    React.useEffect(() => {
+        if (isOpen) {
+            apiService.getCardEditions().then(data => {
+                setEditions(data);
+                if (!initialData && data.length > 0) {
+                    setFormData(prev => ({ ...prev, edition: data[0].name }));
+                }
+            }).catch(err => {
+                console.error('Error al obtener ediciones:', err);
+            });
+        }
+    }, [isOpen, initialData]);
 
     if (!isOpen) return null;
 
@@ -295,6 +309,7 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
                                     <option value="Hinchada">Hinchada</option>
                                     <option value="Estadio">Estadio</option>
                                     <option value="Energía">Energía</option>
+                                    <option value="Ayudante Técnico">Ayudante Técnico</option>
                                 </select>
                             </div>
 
@@ -348,13 +363,14 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
                                     name="edition"
                                     value={formData.edition}
                                     onChange={handleInputChange}
-                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white appearance-none outline-none"
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white appearance-none outline-none focus:border-[#ffd900]/50"
                                 >
-                                    <option value="El Debut">El Debut</option>
-                                    <option value="Clase Mundial">Clase Mundial</option>
-                                    <option value="JO">JO</option>
-                                    <option value="KOIV">KOIV</option>
-                                    <option value="KOVR">KOVR</option>
+                                    {editions.map(ed => (
+                                        <option key={ed.id} value={ed.name}>{ed.name}</option>
+                                    ))}
+                                    {editions.length === 0 && (
+                                        <option value="">Cargando ediciones...</option>
+                                    )}
                                 </select>
                             </div>
 

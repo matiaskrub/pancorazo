@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CommunityProvider } from './contexts/CommunityContext';
 import { HashRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import ScrollToTop from './components/ScrollToTop';
@@ -130,6 +130,32 @@ const App: React.FC = () => {
     localStorage.removeItem('user');
     window.location.href = '/';
   };
+
+  const handleSilentLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('user');
+  };
+
+  useEffect(() => {
+    // Si hay un usuario en localStorage, verificar silenciosamente con el servidor
+    // que la sesión siga activa y actualizar la información local
+    if (currentUser) {
+      apiService.verifySession()
+        .then(res => {
+          if (!res.session) {
+            handleSilentLogout();
+          } else {
+            // Actualizar la info de usuario local por si cambió algo
+            setCurrentUser(res.user);
+            localStorage.setItem('user', JSON.stringify(res.user));
+          }
+        })
+        .catch(err => {
+          console.error('Error al verificar sesión:', err);
+          handleSilentLogout();
+        });
+    }
+  }, []);
 
   return (
     <CommunityProvider>

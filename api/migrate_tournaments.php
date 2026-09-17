@@ -54,8 +54,10 @@ try {
         "ALTER TABLE tournaments ADD COLUMN banner_url VARCHAR(255) NULL" => "Columna `banner_url` en `tournaments`",
         "ALTER TABLE tournaments ADD COLUMN engine_settings JSON NULL" => "Columna `engine_settings` en `tournaments`",
         "ALTER TABLE tournaments ADD COLUMN tournament_level ENUM('tienda', 'regional', 'nacional') DEFAULT 'tienda'" => "Columna `tournament_level` en `tournaments`",
-        "ALTER TABLE tournaments ADD COLUMN top_scorer_team_id INT NULL" => "Columna `top_scorer_team_id` en `tournaments`",
-        "ALTER TABLE tournaments ADD COLUMN best_defense_team_id INT NULL" => "Columna `best_defense_team_id` en `tournaments`",
+        "ALTER TABLE tournaments ADD COLUMN top_scorer_team_id VARCHAR(255) NULL" => "Columna `top_scorer_team_id` en `tournaments`",
+        "ALTER TABLE tournaments ADD COLUMN best_defense_team_id VARCHAR(255) NULL" => "Columna `best_defense_team_id` en `tournaments`",
+        "ALTER TABLE tournaments MODIFY COLUMN top_scorer_team_id VARCHAR(255) NULL" => "Modificar `top_scorer_team_id` a VARCHAR en `tournaments`",
+        "ALTER TABLE tournaments MODIFY COLUMN best_defense_team_id VARCHAR(255) NULL" => "Modificar `best_defense_team_id` a VARCHAR en `tournaments`",
         
         "ALTER TABLE tournaments DROP FOREIGN KEY tournaments_ibfk_1" => "Eliminar restricción de clave foránea `tournaments_ibfk_1` (Ignorar si ya se eliminó)",
         "ALTER TABLE tournaments MODIFY COLUMN organizer_id VARCHAR(100) NULL" => "Modificar `organizer_id` a VARCHAR",

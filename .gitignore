@@ -34,5 +34,7 @@ tmp_test.php
 !.env.example
 api/config.php
 scratch/
+api/sessions/
+api/debug_login.txt
 
 

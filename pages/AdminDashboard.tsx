@@ -9,6 +9,7 @@ import ScheduleMatchModal from '../components/ScheduleMatchModal';
 import CreateTournamentModal from '../components/CreateTournamentModal';
 import EditTournamentModal from '../components/EditTournamentModal';
 import CreateCategoryModal from '../components/CreateCategoryModal';
+import CreateEditionModal from '../components/CreateEditionModal';
 import AddNewsModal from '../components/AddNewsModal';
 import ConfirmActionModal from '../components/ConfirmActionModal';
 import EditSeasonModal from '../components/EditSeasonModal';
@@ -29,7 +30,7 @@ const AdminDashboard: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'cartas' | 'equipos' | 'partidos' | 'torneos' | 'configuracion'>(
         (localStorage.getItem('adminActiveTab') as any) || 'cartas'
     );
-    const [settingsTab, setSettingsTab] = useState<'elo' | 'equipos' | 'noticias' | 'otros' | 'cierre_elo'>(
+    const [settingsTab, setSettingsTab] = useState<'elo' | 'equipos' | 'noticias' | 'otros' | 'cierre_elo' | 'ediciones'>(
         (localStorage.getItem('adminSettingsTab') as any) || 'elo'
     );
 
@@ -42,6 +43,7 @@ const AdminDashboard: React.FC = () => {
     const [categories, setCategories] = useState<any[]>([]);
     const [news, setNews] = useState<Noticia[]>([]);
     const [seasons, setSeasons] = useState<any[]>([]);
+    const [editions, setEditions] = useState<any[]>([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -76,6 +78,9 @@ const AdminDashboard: React.FC = () => {
 
     const [isEditSeasonOpen, setIsEditSeasonOpen] = useState(false);
     const [selectedSeason, setSelectedSeason] = useState<any | null>(null);
+
+    const [isEditionModalOpen, setIsEditionModalOpen] = useState(false);
+    const [selectedEdition, setSelectedEdition] = useState<any | null>(null);
 
     // Confirm Modal
     const [confirmModal, setConfirmModal] = useState<{
@@ -135,6 +140,9 @@ const AdminDashboard: React.FC = () => {
                 } else if (settingsTab === 'cierre_elo') {
                     const s = await apiService.getSeasons();
                     setSeasons(s);
+                } else if (settingsTab === 'ediciones') {
+                    const eds = await apiService.getCardEditions();
+                    setEditions(eds);
                 }
             }
         } catch (err: any) {
@@ -293,6 +301,22 @@ const AdminDashboard: React.FC = () => {
                     fetchData();
                 } catch (err: any) {
                     alert('Error al eliminar la categoría: ' + err.message);
+                }
+            }
+        });
+    };
+
+    const handleDeleteEdition = async (id: number | string) => {
+        openConfirm({
+            title: 'Eliminar Edición',
+            message: '¿Estás seguro de eliminar esta edición? Las cartas asociadas quedarán sin edición asignada y esta acción no se puede deshacer.',
+            isDangerous: true,
+            onConfirm: async () => {
+                try {
+                    await apiService.deleteCardEdition(id);
+                    fetchData();
+                } catch (err: any) {
+                    alert('Error al eliminar la edición: ' + err.message);
                 }
             }
         });
@@ -525,9 +549,14 @@ const AdminDashboard: React.FC = () => {
                                 { id: 'elo', label: 'Autorización ELO', icon: 'sports_score' },
                                 { id: 'equipos', label: 'Autorizar Equipos (Claims)', icon: 'how_to_reg' },
                                 { id: 'noticias', label: 'Noticias / Novedades', icon: 'newspaper' },
+                                { id: 'ediciones', label: 'Ediciones de Cartas', icon: 'style', adminOnly: true },
                                 { id: 'otros', label: 'Categorías (Series)', icon: 'category', superOnly: true },
                                 { id: 'cierre_elo', label: 'Temporadas y Cierre', icon: 'lock_open', superOnly: true }
-                            ].filter(subTab => !subTab.superOnly || currentUser?.global_role === 'SUPER_ADMIN').map(subTab => (
+                            ].filter(subTab => {
+                                if (subTab.superOnly && currentUser?.global_role !== 'SUPER_ADMIN') return false;
+                                if (subTab.adminOnly && !['SUPER_ADMIN', 'ADMIN'].includes(currentUser?.global_role || '')) return false;
+                                return true;
+                            }).map(subTab => (
                                 <button
                                     key={subTab.id}
                                     onClick={() => setSettingsTab(subTab.id as any)}
@@ -1224,6 +1253,71 @@ const AdminDashboard: React.FC = () => {
                                             </div>
                                         )}
 
+                                         {/* SUBTAB: EDICIONES DE CARTAS */}
+                                         {settingsTab === 'ediciones' && (
+                                             <div className="space-y-6">
+                                                 <div className="flex justify-between items-center">
+                                                     <h3 className="text-xs font-black uppercase text-white tracking-widest">Ediciones de Cartas</h3>
+                                                     <button
+                                                         onClick={() => { setSelectedEdition(null); setIsEditionModalOpen(true); }}
+                                                         className="bg-[#ffd900] text-black px-6 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-[#ffed4d] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-1 shadow-lg shadow-[#ffd900]/5"
+                                                     >
+                                                         <span className="material-symbols-outlined text-sm">add</span> Crear Nueva Edición
+                                                     </button>
+                                                 </div>
+
+                                                 <table className="w-full border-collapse text-left mt-4">
+                                                     <thead>
+                                                         <tr className="bg-white/2 border-b border-white/5 text-[9px] font-black text-white/30 uppercase tracking-widest">
+                                                             <th className="px-6 py-4">Nombre de la Edición</th>
+                                                             <th className="px-6 py-4">Fecha de Creación</th>
+                                                             <th className="px-6 py-4 text-right">Acciones</th>
+                                                         </tr>
+                                                     </thead>
+                                                     <tbody className="divide-y divide-white/5">
+                                                         {editions.map(ed => (
+                                                             <tr key={ed.id} className="hover:bg-white/2 transition-colors">
+                                                                 <td className="px-6 py-4">
+                                                                     <div className="text-xs font-bold text-white uppercase">{ed.name}</div>
+                                                                     <div className="text-[9px] text-white/30 uppercase tracking-widest mt-0.5">ID: #{ed.id}</div>
+                                                                 </td>
+                                                                 <td className="px-6 py-4 text-xs font-medium text-white/60">
+                                                                     {new Date(ed.created_at).toLocaleDateString('es-CL', {
+                                                                         day: '2-digit', month: 'short', year: 'numeric'
+                                                                     })}
+                                                                 </td>
+                                                                 <td className="px-6 py-4 text-right">
+                                                                     <div className="flex justify-end gap-2">
+                                                                         <button
+                                                                             onClick={() => { setSelectedEdition(ed); setIsEditionModalOpen(true); }}
+                                                                             className="p-1.5 bg-white/5 border border-white/10 text-white/60 hover:text-[#ffd900] hover:border-[#ffd900]/30 transition-colors"
+                                                                             title="Editar Edición"
+                                                                         >
+                                                                             <span className="material-symbols-outlined text-sm">edit</span>
+                                                                         </button>
+                                                                         <button
+                                                                             onClick={() => handleDeleteEdition(ed.id)}
+                                                                             className="p-1.5 bg-red-500/5 border border-red-500/10 text-red-500/60 hover:text-red-500 hover:border-red-500/30 transition-colors"
+                                                                             title="Eliminar Edición"
+                                                                         >
+                                                                             <span className="material-symbols-outlined text-sm">delete</span>
+                                                                         </button>
+                                                                     </div>
+                                                                 </td>
+                                                             </tr>
+                                                         ))}
+                                                         {editions.length === 0 && (
+                                                             <tr>
+                                                                 <td colSpan={3} className="py-20 text-center text-white/20 uppercase text-[10px] font-black tracking-widest">
+                                                                     No hay ediciones de cartas registradas
+                                                                 </td>
+                                                             </tr>
+                                                         )}
+                                                     </tbody>
+                                                 </table>
+                                             </div>
+                                         )}
+
                                         {/* SUBTAB: CIERRE ELO / TEMPORADAS */}
                                         {settingsTab === 'cierre_elo' && (
                                             <div className="space-y-10">
@@ -1402,6 +1496,14 @@ const AdminDashboard: React.FC = () => {
                     onTournamentUpdated={fetchData}
                 />
             )}
+
+            {/* Modal Crear/Editar Edición de Cartas */}
+            <CreateEditionModal
+                isOpen={isEditionModalOpen}
+                onClose={() => setIsEditionModalOpen(false)}
+                onEditionSaved={fetchData}
+                initialData={selectedEdition}
+            />
 
             {/* Modal Crear Categoría de Torneos */}
             <CreateCategoryModal

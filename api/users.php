@@ -7,6 +7,12 @@ switch ($method) {
     case 'GET':
         if (isset($_GET['action']) && $_GET['action'] === 'get_pending') {
             getPendingUsers($pdo);
+        } elseif (isset($_GET['action']) && $_GET['action'] === 'session') {
+            if (isset($_SESSION['user'])) {
+                sendResponse(["session" => true, "user" => $_SESSION['user']]);
+            } else {
+                sendResponse(["session" => false], 401);
+            }
         } else {
             getUsers($pdo);
         }
@@ -137,7 +143,22 @@ function loginUser($pdo, $data)
 function updateUser($pdo, $data)
 {
     try {
+        if (!isset($data['id'])) {
+            sendResponse(["error" => "ID de usuario requerido"], 400);
+        }
         $id = $data['id'];
+
+        // 1. Requerir autenticación usando checkAuth()
+        $currentUser = checkAuth();
+
+        // 2. Validar que el usuario sea el mismo o administrador (SUPER_ADMIN o ADMIN)
+        $isAdmin = in_array($currentUser['global_role'], ['SUPER_ADMIN', 'ADMIN']);
+        $isSelf = (string)$currentUser['id'] === (string)$id;
+
+        if (!$isSelf && !$isAdmin) {
+            sendResponse(["error" => "No tienes permisos para modificar este perfil."], 403);
+        }
+
         $username = $data['username'] ?? null;
         $password = $data['password'] ?? null;
 
@@ -154,7 +175,14 @@ function updateUser($pdo, $data)
             $params[] = password_hash($password, PASSWORD_BCRYPT);
         }
 
-        $optionalFields = ['email', 'status', 'first_name', 'last_name', 'country', 'custom_country', 'region', 'commune', 'wsp', 'profile_image', 'social_google_id', 'social_discord_id', 'accept_newsletter', 'organizer', 'global_role'];
+        // 3. Excluir campos administrativos si no es administrador
+        if ($isAdmin) {
+            $optionalFields = ['email', 'status', 'first_name', 'last_name', 'country', 'custom_country', 'region', 'commune', 'wsp', 'profile_image', 'social_google_id', 'social_discord_id', 'accept_newsletter', 'organizer', 'global_role'];
+        } else {
+            // Usuario regular no puede cambiar status, global_role, ni organizer
+            $optionalFields = ['email', 'first_name', 'last_name', 'country', 'custom_country', 'region', 'commune', 'wsp', 'profile_image', 'social_google_id', 'social_discord_id', 'accept_newsletter'];
+        }
+
         foreach ($optionalFields as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "$field = ?";

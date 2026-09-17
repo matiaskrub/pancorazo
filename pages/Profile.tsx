@@ -67,7 +67,7 @@ const Profile: React.FC = () => {
   // Determinar si es el perfil del usuario logueado
   const savedUserStr = localStorage.getItem('user');
   const loggedUser: User | null = savedUserStr ? JSON.parse(savedUserStr) : null;
-  const isOwnProfile = !urlUserId || (loggedUser && String(loggedUser.id) === String(urlUserId));
+  const isOwnProfile = loggedUser !== null && (!urlUserId || String(loggedUser.id) === String(urlUserId));
 
   // Alinear estados con isOwnProfile si es necesario, pero loadData se encargará de setear currentUser
 
@@ -184,6 +184,11 @@ const Profile: React.FC = () => {
 
         const decks = await apiService.getUserDecks(user.id, String(loggedUser?.id || ''));
         setUserDecks(decks);
+      } else {
+        setCurrentUser(null);
+        setUserTeam(null);
+        setUserDecks([]);
+        setPendingClaim(null);
       }
     } catch (err) {
       console.error('Error al cargar perfil:', err);
@@ -209,6 +214,11 @@ const Profile: React.FC = () => {
   };
 
   useEffect(() => {
+    setCurrentUser(null);
+    setUserTeam(null);
+    setUserDecks([]);
+    setPendingClaim(null);
+    setIsLoading(true);
     loadData(urlUserId);
     apiService.getCountries().then(setCountries).catch(console.error);
   }, [urlUserId]);

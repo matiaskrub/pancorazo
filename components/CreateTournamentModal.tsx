@@ -39,6 +39,7 @@ const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({ isOpen, o
     const [tournamentType, setTournamentType] = useState<'pichanga' | 'barrio' | 'ascenso' | 'oro'>('barrio');
     const [competitivenessLevel, setCompetitivenessLevel] = useState<'semiprofesional' | 'profesional'>('semiprofesional');
     const [highlightSettings, setHighlightSettings] = useState<HighlightRule[]>([]);
+    const [paymentUrl, setPaymentUrl] = useState('');
     
     const [regions, setRegions] = useState<any[]>([]);
     
@@ -111,6 +112,7 @@ const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({ isOpen, o
                 registration_end: registrationEnd || undefined,
                 start_date: estimatedStart || undefined,
                 prizes: prizes || undefined,
+                payment_url: paymentUrl || undefined,
                 min_teams: minTeams,
                 max_teams: noLimit ? 99 : maxTeams,
                 has_third_place: hasThirdPlace ? 1 : 0,
@@ -131,7 +133,7 @@ const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({ isOpen, o
             // Reset form
             setName(''); setOrganizerId('Otros'); setIsJo(false); setParticipantType('individual');
             setStructure('liga'); setMatchFormat('home_away'); setRegistrationStart(''); setRegistrationEnd('');
-            setEstimatedStart(''); setPrizes(''); setMinTeams(4); setMaxTeams(20); setNoLimit(false);
+            setEstimatedStart(''); setPrizes(''); setPaymentUrl(''); setMinTeams(4); setMaxTeams(20); setNoLimit(false);
             setHasThirdPlace(false); setChampionId(''); setHighlightSettings([]); setAllowedRegions([]); setIsInvitational(false);
             setTournamentType('barrio'); setCompetitivenessLevel('semiprofesional'); setIsLegacy(false); setCurrentStep(1);
         } catch (error) {
@@ -497,6 +499,17 @@ const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({ isOpen, o
                                         onChange={(e) => setPrizes(e.target.value)}
                                         placeholder="Describa los premios..."
                                         className="w-full bg-white/5 border border-white/10 p-4 text-white text-sm focus:outline-none focus:border-[#ffd900] transition-all h-20 resize-none"
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Link de Pago (Inscripción)</label>
+                                    <input
+                                        type="text"
+                                        value={paymentUrl}
+                                        onChange={(e) => setPaymentUrl(e.target.value)}
+                                        placeholder="Ej: https://mercadopago.cl/link-de-pago"
+                                        className="w-full bg-white/5 border border-white/10 p-4 text-white text-sm focus:outline-none focus:border-[#ffd900] transition-all placeholder:text-white/10"
                                     />
                                 </div>
 

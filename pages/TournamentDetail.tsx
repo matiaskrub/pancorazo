@@ -454,43 +454,73 @@ const TournamentDetail: React.FC = () => {
     const renderInhabilitados = () => {
         const roundInhabilitations: {
             [round: number]: {
-                suspendidos: { teamName: string; playerName: string }[];
+                suspendidos: { teamName: string; playerName: string; reason?: string }[];
                 lesionados: { teamName: string; playerName: string }[];
             };
         } = {};
 
-        matches.forEach((m) => {
+        const isOfficial = Number(tournament?.is_jo) === 1;
+        const playerYellowCards: { [key: string]: number } = {};
+
+        const sortedMatches = [...matches].sort((a, b) => (Number(a.round) || 0) - (Number(b.round) || 0));
+
+        sortedMatches.forEach((m) => {
             const prevRound = Number(m.round) || 1;
             const targetRound = prevRound + 1;
 
             if (m.events && Array.isArray(m.events)) {
                 m.events.forEach((evt: any) => {
                     const type = evt.event || evt.type;
-                    if (type === 'RED_CARD' || type === 'INJURY') {
-                        let teamName = '';
-                        if (String(evt.team_id) === String(m.team_home_id)) {
-                            teamName = m.home_name || m.home_team_name || 'Local';
-                        } else if (String(evt.team_id) === String(m.team_away_id)) {
-                            teamName = m.away_name || m.away_team_name || 'Visitante';
+                    let teamName = '';
+                    if (String(evt.team_id) === String(m.team_home_id)) {
+                        teamName = m.home_name || m.home_team_name || 'Local';
+                    } else if (String(evt.team_id) === String(m.team_away_id)) {
+                        teamName = m.away_name || m.away_team_name || 'Visitante';
+                    } else {
+                        const participant = participants.find(p => String(p.team_id) === String(evt.team_id));
+                        teamName = participant?.team_name || 'Equipo';
+                    }
+
+                    const playerName = evt.card_name || 'Jugador';
+                    const playerKey = `${evt.team_id}_${playerName.trim().toLowerCase()}`;
+
+                    if (!roundInhabilitations[targetRound]) {
+                        roundInhabilitations[targetRound] = { suspendidos: [], lesionados: [] };
+                    }
+
+                    if (type === 'YELLOW_CARD') {
+                        if (isOfficial) {
+                            playerYellowCards[playerKey] = (playerYellowCards[playerKey] || 0) + 1;
+                            const count = playerYellowCards[playerKey];
+                            if (count > 0 && count % 2 === 0) {
+                                const existing = roundInhabilitations[targetRound].suspendidos.find(
+                                    s => s.playerName.toLowerCase() === playerName.toLowerCase() && s.teamName === teamName
+                                );
+                                if (!existing) {
+                                    roundInhabilitations[targetRound].suspendidos.push({
+                                        teamName,
+                                        playerName,
+                                        reason: `${count} Tarjetas Amarillas (Acumulación)`
+                                    });
+                                }
+                            }
+                        }
+                    } else if (type === 'RED_CARD') {
+                        const existing = roundInhabilitations[targetRound].suspendidos.find(
+                            s => s.playerName.toLowerCase() === playerName.toLowerCase() && s.teamName === teamName
+                        );
+                        if (!existing) {
+                            roundInhabilitations[targetRound].suspendidos.push({
+                                teamName,
+                                playerName,
+                                reason: 'Tarjeta Roja'
+                            });
                         } else {
-                            const participant = participants.find(p => String(p.team_id) === String(evt.team_id));
-                            teamName = participant?.team_name || 'Equipo';
+                            existing.reason = 'Tarjeta Roja';
                         }
-
-                        const playerName = evt.card_name || 'Jugador';
-
-                        if (!roundInhabilitations[targetRound]) {
-                            roundInhabilitations[targetRound] = { suspendidos: [], lesionados: [] };
-                        }
-
-                        if (type === 'RED_CARD') {
-                            if (!roundInhabilitations[targetRound].suspendidos.some(s => s.playerName === playerName && s.teamName === teamName)) {
-                                roundInhabilitations[targetRound].suspendidos.push({ teamName, playerName });
-                            }
-                        } else if (type === 'INJURY') {
-                            if (!roundInhabilitations[targetRound].lesionados.some(l => l.playerName === playerName && l.teamName === teamName)) {
-                                roundInhabilitations[targetRound].lesionados.push({ teamName, playerName });
-                            }
+                    } else if (type === 'INJURY') {
+                        if (!roundInhabilitations[targetRound].lesionados.some(l => l.playerName.toLowerCase() === playerName.toLowerCase() && l.teamName === teamName)) {
+                            roundInhabilitations[targetRound].lesionados.push({ teamName, playerName });
                         }
                     }
                 });
@@ -509,7 +539,7 @@ const TournamentDetail: React.FC = () => {
                         JUGADORES INHABILITADOS
                     </h3>
                     <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest leading-relaxed">
-                        Las tarjetas rojas y lesiones recibidas en una ronda inhabilitan al jugador para participar en la ronda inmediatamente siguiente.
+                        Las tarjetas rojas, lesiones y la acumulación de 2 tarjetas amarillas (en torneos oficiales) recibidas en una ronda inhabilitan al jugador para participar en la ronda inmediatamente siguiente.
                     </p>
                 </div>
 
@@ -536,9 +566,9 @@ const TournamentDetail: React.FC = () => {
                                     {/* Suspendidos */}
                                     <div className="space-y-3">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs">🟥</span>
+                                            <span className="text-xs">🟥 / 🟨🟨</span>
                                             <h5 className="text-[10px] font-black text-white/40 uppercase tracking-widest">
-                                                SUSPENDIDOS (Tarjeta Roja)
+                                                SUSPENDIDOS (Tarjeta Roja / 2 Amarillas)
                                             </h5>
                                         </div>
                                         {suspendidos.length === 0 ? (
@@ -552,6 +582,9 @@ const TournamentDetail: React.FC = () => {
                                                         <span className="text-[#ffd900] font-black">{s.teamName}</span>
                                                         <span className="text-white/20">—</span>
                                                         <span className="text-white font-bold">{s.playerName}</span>
+                                                        {s.reason && (
+                                                            <span className="text-[10px] text-amber-400/90 font-bold italic ml-1">({s.reason})</span>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>
@@ -738,6 +771,17 @@ const TournamentDetail: React.FC = () => {
                                     >
                                         <span className="material-symbols-outlined text-sm">description</span>
                                         <span className="text-[10px] font-black uppercase tracking-tighter">VER BASES DEL TORNEO</span>
+                                    </a>
+                                )}
+                                {Number(tournament.is_jo) === 1 && (tournament as any).payment_url && (
+                                    <a
+                                        href={(tournament as any).payment_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-6 py-2 rounded-sm border border-emerald-500/30 hover:bg-emerald-500/20 hover:scale-105 transition-all shadow-[0_0_15px_rgba(16,185,129,0.15)] cursor-pointer"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">payments</span>
+                                        <span className="text-[10px] font-black uppercase tracking-tighter">Pagar Inscripción</span>
                                     </a>
                                 )}
                             </div>

@@ -369,10 +369,10 @@ function createTournament($pdo, $data)
 
         $sql = "INSERT INTO tournaments (name, organizer_id, status, is_jo, legacy, is_invitational, participant_type, structure, season,
 registration_start, registration_end, start_date, end_date, prizes, min_teams, max_teams, has_third_place, highlight_settings,
-region_id, tournament_type, competitiveness_level, tournament_level, created_by_user_id)
+region_id, tournament_type, competitiveness_level, tournament_level, created_by_user_id, payment_url)
 VALUES (:name, :organizer_id, :status, :is_jo, :legacy, :is_invitational, :participant_type, :structure, :season, :registration_start,
 :registration_end, :start_date, :end_date, :prizes, :min_teams, :max_teams, :has_third_place, :highlight_settings,
-:region_id, :tournament_type, :competitiveness_level, :tournament_level, :created_by_user_id)";
+:region_id, :tournament_type, :competitiveness_level, :tournament_level, :created_by_user_id, :payment_url)";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             ':name' => $data['name'],
@@ -397,7 +397,8 @@ VALUES (:name, :organizer_id, :status, :is_jo, :legacy, :is_invitational, :parti
             ':tournament_type' => $tournamentType,
             ':competitiveness_level' => $data['competitiveness_level'] ?? 'semiprofesional',
             ':tournament_level' => $tournamentType,
-            ':created_by_user_id' => $userId
+            ':created_by_user_id' => $userId,
+            ':payment_url' => $data['payment_url'] ?? null
         ]);
         
         $newTournamentId = $pdo->lastInsertId();
@@ -526,6 +527,10 @@ function updateTournament($pdo, $data)
         if (isset($data['banner_url'])) {
             $sql .= ",\nbanner_url = :banner_url";
             $params[':banner_url'] = $data['banner_url'];
+        }
+        if (isset($data['payment_url'])) {
+            $sql .= ",\npayment_url = :payment_url";
+            $params[':payment_url'] = $data['payment_url'];
         }
 
         $sql .= "\nWHERE id = :id";
@@ -734,8 +739,21 @@ function closeTournament($pdo, $data)
                          best_defense_team_id = :best_defense, 
                          fair_play_team_id = :fair_play";
             $params[':tournament_level'] = $tournamentLevel;
-            $params[':top_scorer'] = !empty($stats['top_scorer_team_id']) ? $stats['top_scorer_team_id'] : null;
-            $params[':best_defense'] = !empty($stats['best_defense_team_id']) ? $stats['best_defense_team_id'] : null;
+            // Unir si viene como array para top_scorer
+            if (isset($stats['top_scorer_team_id']) && is_array($stats['top_scorer_team_id'])) {
+                $params[':top_scorer'] = implode(',', $stats['top_scorer_team_id']);
+                $stats['top_scorer_team_id'] = $params[':top_scorer'];
+            } else {
+                $params[':top_scorer'] = !empty($stats['top_scorer_team_id']) ? $stats['top_scorer_team_id'] : null;
+            }
+
+            // Unir si viene como array para best_defense
+            if (isset($stats['best_defense_team_id']) && is_array($stats['best_defense_team_id'])) {
+                $params[':best_defense'] = implode(',', $stats['best_defense_team_id']);
+                $stats['best_defense_team_id'] = $params[':best_defense'];
+            } else {
+                $params[':best_defense'] = !empty($stats['best_defense_team_id']) ? $stats['best_defense_team_id'] : null;
+            }
             
             // Unir si viene como array para fair_play
             if (isset($stats['fair_play_team_id']) && is_array($stats['fair_play_team_id'])) {
