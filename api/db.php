@@ -189,19 +189,15 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
-    $countEditions = $pdo->query("SELECT COUNT(*) FROM card_editions")->fetchColumn();
-    if ($countEditions == 0) {
-        // Insertar ediciones que ya existan en las cartas
-        $pdo->exec("INSERT IGNORE INTO card_editions (name) 
-                    SELECT DISTINCT edition FROM cards 
-                    WHERE edition IS NOT NULL AND edition != ''");
-        
-        // Asegurar que existan al menos las básicas
-        $basicEditions = ['El Debut', 'Clase Mundial', 'JO', 'KOIV', 'KOVR'];
-        $stmtInsert = $pdo->prepare("INSERT IGNORE INTO card_editions (name) VALUES (?)");
-        foreach ($basicEditions as $be) {
-            $stmtInsert->execute([$be]);
-        }
+    // Insertar ediciones que ya existan en las cartas y las básicas obligatorias
+    $pdo->exec("INSERT IGNORE INTO card_editions (name) 
+                SELECT DISTINCT edition FROM cards 
+                WHERE edition IS NOT NULL AND edition != ''");
+
+    $basicEditions = ['El Debut', 'Clase Mundial', 'JO', 'JO 2024-2025', 'JO 2026-2027', 'KOIV', 'KOVR'];
+    $stmtInsert = $pdo->prepare("INSERT IGNORE INTO card_editions (name) VALUES (?)");
+    foreach ($basicEditions as $be) {
+        $stmtInsert->execute([$be]);
     }
 } catch (Exception $e) {
     error_log("Error en migraciones automáticas: " . $e->getMessage());

@@ -11,6 +11,8 @@ const Library: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeEdition, setActiveEdition] = useState<string | 'Limpiar'>('Limpiar');
+  const [activeJoSubcategory, setActiveJoSubcategory] = useState<string | 'Limpiar'>('Limpiar');
+  const [dbEditions, setDbEditions] = useState<string[]>([]);
   const [activeType, setActiveType] = useState<string | 'Limpiar'>('Limpiar');
   const [activeCategory, setActiveCategory] = useState<string | 'Limpiar'>('Limpiar');
   const [activePosition, setActivePosition] = useState<PlayerPosition | 'Limpiar'>('Limpiar');
@@ -33,12 +35,33 @@ const Library: React.FC = () => {
   };
 
   useEffect(() => {
+    apiService.getCardEditions().then(data => {
+      if (Array.isArray(data)) {
+        setDbEditions(data.map((e: any) => e.name).filter(Boolean));
+      }
+    }).catch(err => console.error('Error al obtener ediciones:', err));
+  }, []);
+
+  useEffect(() => {
     const fetchCards = async () => {
       setLoading(true);
       try {
+        let editionParam = '';
+        if (activeEdition !== 'Limpiar') {
+          if (activeEdition === 'JO') {
+            if (activeJoSubcategory !== 'Limpiar') {
+              editionParam = `JO ${activeJoSubcategory}`;
+            } else {
+              editionParam = 'JO';
+            }
+          } else {
+            editionParam = activeEdition;
+          }
+        }
+
         const filters: any = {
           search,
-          edition: activeEdition === 'Limpiar' ? '' : activeEdition,
+          edition: editionParam,
           type: activeType === 'Limpiar' ? '' : activeType,
           category: activeCategory === 'Limpiar' ? '' : activeCategory,
           position: activePosition === 'Limpiar' ? '' : activePosition,
@@ -61,11 +84,39 @@ const Library: React.FC = () => {
 
     const debounce = setTimeout(fetchCards, 300);
     return () => clearTimeout(debounce);
-  }, [search, activeEdition, activeType, activeCategory, activePosition, activeShirtColor, activeNationality, activeGender, minCost, maxCost, selectedRarities]);
+  }, [search, activeEdition, activeJoSubcategory, activeType, activeCategory, activePosition, activeShirtColor, activeNationality, activeGender, minCost, maxCost, selectedRarities]);
 
   const editionsList = useMemo(() => {
-    return Array.from(new Set(filterOptions.map(c => c.edition))).filter(Boolean);
-  }, [filterOptions]);
+    const fromCards = filterOptions.map(c => c.edition).filter(Boolean);
+    const combined = Array.from(new Set([...dbEditions, ...fromCards]));
+
+    const set = new Set<string>();
+    combined.forEach(ed => {
+      const trimmed = ed.trim();
+      if (/^JO(\s+|-|\(|$)/i.test(trimmed)) {
+        set.add('JO');
+      } else {
+        set.add(trimmed);
+      }
+    });
+    ['El Debut', 'Clase Mundial', 'JO', 'KOIV', 'KOVR'].forEach(be => set.add(be));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [dbEditions, filterOptions]);
+
+  const joSubcategories = useMemo(() => {
+    const fromCards = filterOptions.map(c => c.edition).filter(Boolean);
+    const combined = Array.from(new Set([...dbEditions, ...fromCards]));
+    const subSet = new Set<string>(['2024-2025', '2026-2027']);
+
+    combined.forEach(ed => {
+      const trimmed = ed.trim();
+      const match = trimmed.match(/^JO[\s\-\(]+([^\)]+)\)?$/i);
+      if (match && match[1]) {
+        subSet.add(match[1].trim());
+      }
+    });
+    return Array.from(subSet).sort((a, b) => b.localeCompare(a));
+  }, [dbEditions, filterOptions]);
 
   const nationalities = useMemo(() => {
     const all = filterOptions.flatMap(c => c.nationality ? c.nationality.split(',').map(n => n.trim()) : []);
@@ -144,6 +195,8 @@ const Library: React.FC = () => {
       <aside className="hidden lg:flex w-[300px] border-r border-white/5 bg-[#101622] flex-col p-6 overflow-y-auto custom-scrollbar">
         <FilterContent
           activeEdition={activeEdition} setActiveEdition={setActiveEdition}
+          activeJoSubcategory={activeJoSubcategory} setActiveJoSubcategory={setActiveJoSubcategory}
+          joSubcategories={joSubcategories}
           activeType={activeType} setActiveType={setActiveType}
           activeCategory={activeCategory} setActiveCategory={setActiveCategory}
           activePosition={activePosition} setActivePosition={setActivePosition}
@@ -174,6 +227,8 @@ const Library: React.FC = () => {
             </div>
             <FilterContent
               activeEdition={activeEdition} setActiveEdition={setActiveEdition}
+              activeJoSubcategory={activeJoSubcategory} setActiveJoSubcategory={setActiveJoSubcategory}
+              joSubcategories={joSubcategories}
               activeType={activeType} setActiveType={setActiveType}
               activeCategory={activeCategory} setActiveCategory={setActiveCategory}
               activePosition={activePosition} setActivePosition={setActivePosition}
@@ -259,6 +314,7 @@ const Library: React.FC = () => {
               <button
                 onClick={() => {
                   setActiveEdition('Limpiar');
+                  setActiveJoSubcategory('Limpiar');
                   setActiveType('Limpiar');
                   setActiveCategory('Limpiar');
                   setActivePosition('Limpiar');
@@ -379,6 +435,8 @@ const Library: React.FC = () => {
 // Extracted Filter Content Component
 const FilterContent: React.FC<any> = ({
   activeEdition, setActiveEdition,
+  activeJoSubcategory, setActiveJoSubcategory,
+  joSubcategories = [],
   activeType, setActiveType,
   activeCategory, setActiveCategory,
   activePosition, setActivePosition,
@@ -403,6 +461,7 @@ const FilterContent: React.FC<any> = ({
           type="button"
           onClick={() => {
             setActiveEdition('Limpiar');
+            if (setActiveJoSubcategory) setActiveJoSubcategory('Limpiar');
             setActiveType('Limpiar');
             setActiveCategory('Limpiar');
             setActivePosition('Limpiar');
@@ -439,24 +498,74 @@ const FilterContent: React.FC<any> = ({
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => { setActiveEdition('Limpiar'); onFilterApplied?.(); }}
+            onClick={() => {
+              setActiveEdition('Limpiar');
+              if (setActiveJoSubcategory) setActiveJoSubcategory('Limpiar');
+              onFilterApplied?.();
+            }}
             className={`px-3 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-tighter transition-all ${activeEdition === 'Limpiar' ? 'bg-[#ffd900] text-[#101622]' : 'bg-[#1a2332] text-white/40 hover:text-white'
               }`}
           >
             TODAS
           </button>
-          {editionsList.map((ed: string) => (
-            <button
-              key={ed}
-              type="button"
-              onClick={() => { setActiveEdition(ed); onFilterApplied?.(); }}
-              className={`px-3 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-tighter transition-all ${activeEdition === ed ? 'bg-[#ffd900] text-[#101622]' : 'bg-[#1a2332] text-white/40 hover:text-white'
-                }`}
-            >
-              {ed}
-            </button>
-          ))}
+          {editionsList.map((ed: string) => {
+            const isJo = ed === 'JO';
+            const isActive = activeEdition === ed;
+            return (
+              <button
+                key={ed}
+                type="button"
+                onClick={() => {
+                  setActiveEdition(ed);
+                  if (!isJo && setActiveJoSubcategory) setActiveJoSubcategory('Limpiar');
+                  onFilterApplied?.();
+                }}
+                className={`px-3 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-tighter transition-all flex items-center gap-1 ${isActive ? 'bg-[#ffd900] text-[#101622]' : 'bg-[#1a2332] text-white/40 hover:text-white'
+                  }`}
+              >
+                <span>{ed}</span>
+                {isJo && <span className="material-symbols-outlined text-xs">arrow_drop_down</span>}
+              </button>
+            );
+          })}
         </div>
+
+        {/* Subcategorías de JO */}
+        {activeEdition === 'JO' && (
+          <div className="mt-3 p-3 bg-white/5 border border-[#ffd900]/20 rounded-lg animate-in fade-in duration-200">
+            <div className="text-[9px] font-black uppercase tracking-widest text-[#ffd900] mb-2 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-xs">tune</span>
+              SUBCATEGORÍAS DE JO
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => { setActiveJoSubcategory?.('Limpiar'); onFilterApplied?.(); }}
+                className={`px-2.5 py-1 rounded-sm text-[9px] font-black uppercase tracking-tighter transition-all ${
+                  activeJoSubcategory === 'Limpiar'
+                    ? 'bg-[#ffd900] text-[#101622] font-black shadow-sm'
+                    : 'bg-[#1a2332] text-white/50 hover:text-white border border-white/5'
+                }`}
+              >
+                TODAS LAS JO
+              </button>
+              {joSubcategories.map((subCat: string) => (
+                <button
+                  key={subCat}
+                  type="button"
+                  onClick={() => { setActiveJoSubcategory?.(subCat); onFilterApplied?.(); }}
+                  className={`px-2.5 py-1 rounded-sm text-[9px] font-black uppercase tracking-tighter transition-all ${
+                    activeJoSubcategory === subCat
+                      ? 'bg-[#ffd900] text-[#101622] font-black shadow-sm'
+                      : 'bg-[#1a2332] text-white/50 hover:text-white border border-white/5'
+                  }`}
+                >
+                  {subCat}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tipo de Carta (Global) */}

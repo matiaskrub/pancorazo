@@ -372,6 +372,32 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
                                         <option value="">Cargando ediciones...</option>
                                     )}
                                 </select>
+
+                                {/* Selector/Ayuda de Subcategoría JO */}
+                                {(formData.edition.toUpperCase().startsWith('JO')) && (
+                                    <div className="mt-2 p-3 bg-[#ffd900]/10 border border-[#ffd900]/20 rounded-lg text-xs">
+                                        <div className="text-[10px] font-black text-[#ffd900] uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-xs">tune</span>
+                                            Subcategoría / Periodo de JO
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {['JO', 'JO 2024-2025', 'JO 2026-2027'].map(joOption => (
+                                                <button
+                                                    key={joOption}
+                                                    type="button"
+                                                    onClick={() => setFormData(prev => ({ ...prev, edition: joOption }))}
+                                                    className={`px-2 py-1 rounded text-[9px] font-bold uppercase transition-all border ${
+                                                        formData.edition === joOption
+                                                            ? 'bg-[#ffd900] text-black border-[#ffd900]'
+                                                            : 'bg-white/5 text-white/60 border-white/10 hover:border-white/30'
+                                                    }`}
+                                                >
+                                                    {joOption === 'JO' ? 'General (Sin año)' : joOption.replace('JO ', '')}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-4 col-span-full border-t border-white/5 pt-6 mt-2">

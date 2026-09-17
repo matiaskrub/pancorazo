@@ -106,6 +106,15 @@ function getCards($pdo)
                         $params[$key] = trim($v);
                     }
                     $filters[] = "$field IN (" . implode(', ', $placeholders) . ")";
+                } else if ($field === 'edition') {
+                    $edVal = trim($_GET['edition']);
+                    if (strtoupper($edVal) === 'JO') {
+                        $filters[] = "(edition = 'JO' OR edition LIKE 'JO %' OR edition LIKE 'JO-%' OR edition LIKE 'JO (%)' OR edition LIKE '%JO%')";
+                    } else {
+                        $filters[] = "(edition = :edition OR edition LIKE :edition_like)";
+                        $params['edition'] = $edVal;
+                        $params['edition_like'] = "%" . $edVal . "%";
+                    }
                 } else if ($field === 'shirt_color' || $field === 'nationality') {
                     $filters[] = "$field COLLATE utf8mb4_unicode_ci LIKE :$field";
                     $params[$field] = "%" . $_GET[$field] . "%";
