@@ -137,7 +137,7 @@ const CardDetailModal: React.FC<CardDetailModalProps> = ({ card, isOpen, onClose
                                     <h4 className="text-[9px] md:text-[10px] font-black text-white/40 uppercase tracking-widest mb-1 md:mb-2 flex items-center gap-1.5 md:gap-2">
                                         <span className="material-symbols-outlined text-xs md:text-sm text-[#ffd900]">stadium</span> POSICIÓN
                                     </h4>
-                                    <p className="text-sm md:text-lg font-black text-white italic uppercase">{card.position}</p>
+                                    <p className="text-sm md:text-lg font-black text-white italic uppercase">{card.position.split(',').map(s => s.trim()).join(' / ')}</p>
                                 </div>
                             )}
                             {card.gender && (

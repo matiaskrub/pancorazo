@@ -124,6 +124,10 @@ try {
     }
 } catch (Exception $e) {}
 
+try {
+    $pdo->exec("ALTER TABLE cards MODIFY COLUMN position VARCHAR(50) NULL");
+} catch (Exception $e) {}
+
 // Migración para temporadas y nuevas columnas de torneos/standings
 try {
     // 1. Crear tabla seasons

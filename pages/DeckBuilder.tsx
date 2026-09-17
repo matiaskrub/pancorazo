@@ -11,6 +11,8 @@ import CardDetailModal from '../components/CardDetailModal';
 interface TacticalCardProps {
   card: Card;
   location: 'cancha' | 'banca';
+  activePosition?: string;
+  onTogglePosition?: (newPos: string) => void;
   onMoveToCancha?: () => void;
   onMoveToBanca?: () => void;
   onMoveToPool: () => void;
@@ -20,13 +22,15 @@ interface TacticalCardProps {
 const TacticalCard: React.FC<TacticalCardProps> = ({ 
   card, 
   location, 
+  activePosition,
+  onTogglePosition,
   onMoveToCancha, 
   onMoveToBanca, 
   onMoveToPool, 
   onShowDetails 
 }) => {
   const getPositionColor = (pos: string) => {
-    switch (String(pos).toUpperCase()) {
+    switch (pos.toUpperCase()) {
       case 'PO': return 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400';
       case 'DF': return 'bg-blue-500/20 border-blue-500/50 text-blue-400';
       case 'MC': return 'bg-green-500/20 border-green-500/50 text-green-400';
@@ -46,6 +50,9 @@ const TacticalCard: React.FC<TacticalCardProps> = ({
 
   const isBanca = location === 'banca';
 
+  const positions = (card.position || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+  const currentPos = (activePosition || positions[0] || '').toUpperCase();
+
   return (
     <div 
       draggable
@@ -64,10 +71,31 @@ const TacticalCard: React.FC<TacticalCardProps> = ({
       </div>
 
       {/* Position Badge & Details trigger */}
-      <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-1">
-        <span className={`px-1 py-0.5 rounded text-[7px] font-black border ${getPositionColor(card.position)}`}>
-          {card.position}
-        </span>
+      <div className="absolute top-1 left-1 z-10 flex flex-wrap items-center gap-0.5 max-w-[85%]">
+        {positions.map((pos) => {
+          const isActive = pos === currentPos;
+          const isDual = positions.length > 1;
+          return (
+            <button
+              key={pos}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (location === 'cancha' && onTogglePosition && !isActive) {
+                  onTogglePosition(pos);
+                }
+              }}
+              className={`px-1 py-0.5 rounded text-[7px] font-black border transition-all ${
+                isActive 
+                  ? `${getPositionColor(pos)} shadow-md scale-105 ring-1 ring-white/60 z-10` 
+                  : 'bg-black/70 border-white/20 text-white/40 hover:text-white hover:border-white/50 cursor-pointer'
+              }`}
+              title={isDual ? (isActive ? `Posición activa en cancha: ${pos}` : `Cambiar posición activa a ${pos}`) : pos}
+            >
+              {pos}
+            </button>
+          );
+        })}
       </div>
 
       {/* Action Buttons overlay */}
@@ -141,6 +169,7 @@ const DeckBuilder2: React.FC = () => {
   // --- Player Positioning States ---
   const [canchaPlayers, setCanchaPlayers] = useState<string[]>([]);
   const [bancaPlayers, setBancaPlayers] = useState<string[]>([]);
+  const [canchaPlayerPositions, setCanchaPlayerPositions] = useState<Record<string, string>>({});
   const [distributedForDeckId, setDistributedForDeckId] = useState<string | null>(null);
 
   // --- Autosave States & Refs ---
@@ -328,6 +357,7 @@ const DeckBuilder2: React.FC = () => {
       setDeckId(pendingDraft.id || null);
       setCanchaPlayers(pendingDraft.canchaPlayers || []);
       setBancaPlayers(pendingDraft.bancaPlayers || []);
+      setCanchaPlayerPositions(pendingDraft.canchaPlayerPositions || {});
       setDistributedForDeckId(pendingDraft.id || null);
       setAutosaveStatus('saved');
     }
@@ -356,6 +386,7 @@ const DeckBuilder2: React.FC = () => {
       deckCounts: deckCounts,
       canchaPlayers: canchaPlayers,
       bancaPlayers: bancaPlayers,
+      canchaPlayerPositions: canchaPlayerPositions,
       timestamp: Date.now()
     };
     localStorage.setItem('pancorazo_deck_draft', JSON.stringify(draftData));
@@ -504,58 +535,77 @@ const DeckBuilder2: React.FC = () => {
   const playersInDeck = useMemo(() => deckCardsDetailed.filter(item => isPlayerCard(item.card)).map(i => i.card), [deckCardsDetailed]);
 
   // --- Auto-Distribution & Load Restore ---
+  const cardHasPosition = (card: Card | null | undefined, posTarget: string) => {
+    if (!card || !card.position) return false;
+    const positions = card.position.split(',').map(s => s.trim().toUpperCase());
+    return positions.includes(posTarget.toUpperCase());
+  };
+
+  const isCanchaFormationValid = (canchaFieldPlayers: Card[]) => {
+    if (canchaFieldPlayers.length !== 6) return false;
+
+    const targetFormations = [
+      { DF: 3, MC: 2, DL: 1 },
+      { DF: 3, MC: 1, DL: 2 },
+      { DF: 2, MC: 3, DL: 1 },
+      { DF: 2, MC: 1, DL: 3 },
+      { DF: 1, MC: 3, DL: 2 },
+      { DF: 1, MC: 2, DL: 3 },
+      { DF: 2, MC: 2, DL: 2 }
+    ];
+
+    const canMatch = (playerIdx: number, currentCounts: { DF: number; MC: number; DL: number }, target: { DF: number; MC: number; DL: number }): boolean => {
+      if (playerIdx === canchaFieldPlayers.length) {
+        return currentCounts.DF === target.DF && currentCounts.MC === target.MC && currentCounts.DL === target.DL;
+      }
+
+      const player = canchaFieldPlayers[playerIdx];
+      const allowed = (player.position || '').split(',').map(s => s.trim().toUpperCase());
+
+      for (const pos of ['DF', 'MC', 'DL'] as const) {
+        if (allowed.includes(pos) && currentCounts[pos] < target[pos]) {
+          const nextCounts = { ...currentCounts, [pos]: currentCounts[pos] + 1 };
+          if (canMatch(playerIdx + 1, nextCounts, target)) return true;
+        }
+      }
+
+      return false;
+    };
+
+    return targetFormations.some(target => canMatch(0, { DF: 0, MC: 0, DL: 0 }, target));
+  };
+
   const autoDistribute = (players: Card[]) => {
     const cancha: string[] = [];
     const banca: string[] = [];
+    const positions: Record<string, string> = {};
 
-    // Group players by position
-    const posGroups: Record<string, Card[]> = { PO: [], DF: [], MC: [], DL: [] };
-    players.forEach(p => {
-      const pos = (p.position || '').toUpperCase();
-      if (posGroups[pos]) {
-        posGroups[pos].push(p);
-      } else {
-        posGroups.DF.push(p);
-      }
-    });
+    const poPlayers = players.filter(p => cardHasPosition(p, 'PO'));
+    const fieldPlayers = players.filter(p => !cardHasPosition(p, 'PO'));
 
-    // 1. Assign POs (First PO to cancha, second PO to banca - mandatory)
-    if (posGroups.PO.length >= 2) {
-      cancha.push(String(posGroups.PO[0].id));
-      banca.push(String(posGroups.PO[1].id));
-      posGroups.PO = posGroups.PO.slice(2);
-    } else if (posGroups.PO.length === 1) {
-      cancha.push(String(posGroups.PO[0].id));
-      posGroups.PO = [];
+    // 1. Assign POs
+    if (poPlayers.length >= 2) {
+      cancha.push(String(poPlayers[0].id));
+      positions[String(poPlayers[0].id)] = 'PO';
+      banca.push(String(poPlayers[1].id));
+    } else if (poPlayers.length === 1) {
+      cancha.push(String(poPlayers[0].id));
+      positions[String(poPlayers[0].id)] = 'PO';
     }
 
-    // 2. Assign 1 of each of DF, MC, DL to Cancha if available
-    ['DF', 'MC', 'DL'].forEach(pos => {
-      if (posGroups[pos].length > 0) {
-        cancha.push(String(posGroups[pos][0].id));
-        posGroups[pos] = posGroups[pos].slice(1);
-      }
-    });
-
-    // 3. Distribute remaining players
-    const remaining = [...posGroups.PO, ...posGroups.DF, ...posGroups.MC, ...posGroups.DL];
-    remaining.forEach(p => {
-      const pPos = (p.position || '').toUpperCase();
-      const currentCanchaPosCount = cancha.filter(id => {
-        const c = players.find(x => String(x.id) === String(id));
-        return c && (c.position || '').toUpperCase() === pPos;
-      }).length;
-
-      // Rule: Cancha max 7 players, position max 3, no extra POs (already have 1)
-      if (cancha.length < 7 && currentCanchaPosCount < 3 && pPos !== 'PO') {
+    // 2. Assign field players
+    fieldPlayers.forEach(p => {
+      const allowed = (p.position || '').split(',').map(s => s.trim().toUpperCase());
+      const primary = allowed.find(x => x !== 'PO') || allowed[0] || 'DF';
+      if (cancha.length < 7) {
         cancha.push(String(p.id));
-      } else if (banca.length < 3 && pPos !== 'PO') {
-        // Banca max 3 players, no extra POs (already have 1)
+        positions[String(p.id)] = primary;
+      } else if (banca.length < 3) {
         banca.push(String(p.id));
       }
     });
 
-    return { cancha, banca };
+    return { cancha, banca, positions };
   };
 
   useEffect(() => {
@@ -571,6 +621,9 @@ const DeckBuilder2: React.FC = () => {
         if (draft.id === currentUrlId && draft.canchaPlayers && draft.bancaPlayers) {
           setCanchaPlayers(draft.canchaPlayers);
           setBancaPlayers(draft.bancaPlayers);
+          if (draft.canchaPlayerPositions) {
+            setCanchaPlayerPositions(draft.canchaPlayerPositions);
+          }
           setDistributedForDeckId(deckId);
           return;
         }
@@ -580,9 +633,10 @@ const DeckBuilder2: React.FC = () => {
     }
 
     // Auto-distribute players
-    const { cancha, banca } = autoDistribute(playersInDeck);
+    const { cancha, banca, positions } = autoDistribute(playersInDeck);
     setCanchaPlayers(cancha);
     setBancaPlayers(banca);
+    setCanchaPlayerPositions(prev => ({ ...positions, ...prev }));
     setDistributedForDeckId(deckId);
   }, [playersInDeck, deckId, distributedForDeckId, deckIdFromUrl]);
 
@@ -604,7 +658,7 @@ const DeckBuilder2: React.FC = () => {
 
   // Colores de camiseta compartidos en cancha (excluyendo porteros)
   const canchaPlayersColors = useMemo(() => {
-    const playersToInclude = canchaCards.filter(p => (p.position || '').toUpperCase() !== 'PO');
+    const playersToInclude = canchaCards.filter(p => !cardHasPosition(p, 'PO'));
     if (playersToInclude.length === 0) {
       return { commonColors: new Set<string>(), shareColor: false };
     }
@@ -688,7 +742,7 @@ const DeckBuilder2: React.FC = () => {
   // Auto-selección de formato
   useEffect(() => {
     if (!isFormatManuallySelected && canchaCards.length > 0) {
-      const fieldPlayers = canchaCards.filter(p => (p.position || '').toUpperCase() !== 'PO');
+      const fieldPlayers = canchaCards.filter(p => !cardHasPosition(p, 'PO'));
       if (fieldPlayers.length > 0) {
         setDeckFormat(canchaPlayersColors.shareColor ? 'Fanático' : 'Internacional');
       }
@@ -716,11 +770,16 @@ const DeckBuilder2: React.FC = () => {
   const canchaPosCounts = useMemo(() => {
     const counts = { PO: 0, DF: 0, MC: 0, DL: 0 };
     canchaCards.forEach(p => {
-      const pos = (p.position || '').toUpperCase();
-      if (pos in counts) counts[pos as keyof typeof counts]++;
+      const idStr = String(p.id);
+      let activePos = canchaPlayerPositions[idStr];
+      if (!activePos) {
+        activePos = (p.position || '').split(',')[0].trim().toUpperCase();
+      }
+      activePos = activePos.toUpperCase();
+      if (activePos in counts) counts[activePos as keyof typeof counts]++;
     });
     return counts;
-  }, [canchaCards]);
+  }, [canchaCards, canchaPlayerPositions]);
 
   const bancaCards = useMemo(() => {
     return playersInDeck.filter(p => bancaPlayers.includes(String(p.id)));
@@ -729,8 +788,9 @@ const DeckBuilder2: React.FC = () => {
   const bancaPosCounts = useMemo(() => {
     const counts = { PO: 0, DF: 0, MC: 0, DL: 0 };
     bancaCards.forEach(p => {
-      const pos = (p.position || '').toUpperCase();
-      if (pos in counts) counts[pos as keyof typeof counts]++;
+      ['PO', 'DF', 'MC', 'DL'].forEach(pos => {
+        if (cardHasPosition(p, pos)) counts[pos as keyof typeof counts]++;
+      });
     });
     return counts;
   }, [bancaCards]);
@@ -738,6 +798,41 @@ const DeckBuilder2: React.FC = () => {
   const unassignedPlayers = useMemo(() => {
     return playersInDeck.filter(p => !canchaPlayers.includes(String(p.id)) && !bancaPlayers.includes(String(p.id)));
   }, [playersInDeck, canchaPlayers, bancaPlayers]);
+
+  // Asignación directa según la posición activa seleccionada por el usuario
+  const canchaZoneAssignment = useMemo(() => {
+    const assignment: Record<string, 'DL' | 'MC' | 'DEFENSA'> = {};
+    canchaCards.forEach(p => {
+      const idStr = String(p.id);
+      let activePos = canchaPlayerPositions[idStr];
+      if (!activePos) {
+        activePos = (p.position || '').split(',')[0].trim().toUpperCase();
+      }
+      activePos = activePos.toUpperCase();
+      if (activePos === 'DF' || activePos === 'PO') {
+        assignment[idStr] = 'DEFENSA';
+      } else if (activePos === 'DL') {
+        assignment[idStr] = 'DL';
+      } else {
+        assignment[idStr] = 'MC';
+      }
+    });
+    return assignment;
+  }, [canchaCards, canchaPlayerPositions]);
+
+  const togglePlayerCanchaPosition = (cardId: string, newPos: string) => {
+    const idStr = String(cardId);
+    const player = playersInDeck.find(p => String(p.id) === idStr);
+    if (!player) return;
+
+    const allowedPositions = (player.position || '').split(',').map(s => s.trim().toUpperCase());
+    if (!allowedPositions.includes(newPos.toUpperCase())) return;
+
+    setCanchaPlayerPositions(prev => ({
+      ...prev,
+      [idStr]: newPos.toUpperCase()
+    }));
+  };
 
   const validationErrors = useMemo(() => {
     const errors: string[] = [];
@@ -751,18 +846,16 @@ const DeckBuilder2: React.FC = () => {
     if (canchaPlayers.length !== 7) {
       errors.push("La cancha debe tener exactamente 7 jugadores.");
     }
-    if (canchaPosCounts.PO !== 1) {
+    const canchaPoCount = canchaCards.filter(p => cardHasPosition(p, 'PO')).length;
+    if (canchaPoCount !== 1) {
       errors.push("Debe haber exactamente 1 portero (PO) en la cancha.");
     }
-    if (canchaPosCounts.DF < 1 || canchaPosCounts.DF > 3) {
-      errors.push("Debe haber entre 1 y 3 defensas (DF) en la cancha.");
+
+    const canchaFieldPlayers = canchaCards.filter(p => !cardHasPosition(p, 'PO'));
+    if (canchaFieldPlayers.length !== 6 || canchaPosCounts.DF < 1 || canchaPosCounts.DF > 3 || canchaPosCounts.MC < 1 || canchaPosCounts.MC > 3 || canchaPosCounts.DL < 1 || canchaPosCounts.DL > 3) {
+      errors.push("La formación en cancha no es válida. Debe haber entre 1 y 3 defensas (DF), entre 1 y 3 mediocampistas (MC) y entre 1 y 3 delanteros (DL).");
     }
-    if (canchaPosCounts.MC < 1 || canchaPosCounts.MC > 3) {
-      errors.push("Debe haber entre 1 y 3 mediocampistas (MC) en la cancha.");
-    }
-    if (canchaPosCounts.DL < 1 || canchaPosCounts.DL > 3) {
-      errors.push("Debe haber entre 1 y 3 delanteros (DL) en la cancha.");
-    }
+
     const captainsInCancha = canchaCards.filter(isCaptainCard).length;
     if (captainsInCancha > 1) {
       errors.push("Solo se permite un máximo de 1 capitán en la cancha.");
@@ -772,13 +865,14 @@ const DeckBuilder2: React.FC = () => {
     if (bancaPlayers.length !== 3) {
       errors.push("La banca debe tener exactamente 3 suplentes.");
     }
-    if (bancaPosCounts.PO !== 1) {
+    const bancaPoCount = bancaCards.filter(p => cardHasPosition(p, 'PO')).length;
+    if (bancaPoCount !== 1) {
       errors.push("Debe haber exactamente 1 portero suplente en la banca.");
     }
 
     // 4. Uniformity in fanatic mode:
     if (deckFormat === 'Fanático') {
-      const fieldPlayers = canchaCards.filter(p => (p.position || '').toUpperCase() !== 'PO');
+      const fieldPlayers = canchaCards.filter(p => !cardHasPosition(p, 'PO'));
       if (fieldPlayers.length > 0 && !canchaPlayersColors.shareColor) {
         errors.push("En el formato Fanático, todos los jugadores en cancha (excluyendo porteros) deben compartir color de camiseta.");
       }
@@ -790,7 +884,7 @@ const DeckBuilder2: React.FC = () => {
     }
 
     return errors;
-  }, [totalPlayers, canchaPlayers, canchaPosCounts, bancaPlayers, bancaPosCounts, deckFormat, canchaCards, canchaPlayersColors.shareColor, fanCardsValidation]);
+  }, [totalPlayers, canchaPlayers, bancaPlayers, deckFormat, canchaCards, bancaCards, canchaPosCounts, canchaPlayersColors.shareColor, fanCardsValidation]);
 
   const isLayoutValid = useMemo(() => {
     return validationErrors.length === 0;
@@ -884,14 +978,30 @@ const DeckBuilder2: React.FC = () => {
     e.preventDefault();
   };
 
-  const moveToCancha = (cardId: string) => {
+  const moveToCancha = (cardId: string, targetPos?: string) => {
     const idStr = String(cardId);
     const player = playersInDeck.find(p => String(p.id) === idStr);
     if (!player) return;
 
     if (canchaPlayers.map(String).includes(idStr)) return;
 
-    const pPos = (player.position || '').toUpperCase();
+    const isPo = cardHasPosition(player, 'PO');
+    const allowedPositions = (player.position || '').split(',').map(s => s.trim().toUpperCase());
+
+    let posToSet = targetPos ? targetPos.toUpperCase() : null;
+    if (posToSet) {
+      if (isPo && (posToSet === 'DEFENSA' || posToSet === 'PO')) {
+        posToSet = 'PO';
+      } else {
+        if (posToSet === 'DEFENSA') posToSet = 'DF';
+        if (!allowedPositions.includes(posToSet)) {
+          alert(`El jugador "${player.name}" no puede jugar en la posición ${targetPos}. Posiciones permitidas: ${player.position}`);
+          return;
+        }
+      }
+    } else {
+      posToSet = canchaPlayerPositions[idStr] || allowedPositions.find(p => p !== 'PO') || allowedPositions[0] || 'DF';
+    }
 
     // rule: maximum 1 captain in Cancha
     if (isCaptainCard(player)) {
@@ -903,12 +1013,9 @@ const DeckBuilder2: React.FC = () => {
     }
 
     // rule: exactly 1 portero in Cancha
-    if (pPos === 'PO') {
-      const currentCanchaPosCount = canchaPlayers.filter(id => {
-        const c = playersInDeck.find(x => String(x.id) === String(id));
-        return c && (c.position || '').toUpperCase() === 'PO';
-      }).length;
-      if (currentCanchaPosCount >= 1) {
+    if (isPo || posToSet === 'PO') {
+      const currentCanchaPoCount = canchaCards.filter(p => cardHasPosition(p, 'PO')).length;
+      if (currentCanchaPoCount >= 1) {
         alert("La Cancha ya tiene un portero. Solo se permite 1 portero en cancha.");
         return;
       }
@@ -919,16 +1026,15 @@ const DeckBuilder2: React.FC = () => {
       return;
     }
 
-    const currentCanchaPosCount = canchaPlayers.filter(id => {
-      const c = playersInDeck.find(x => String(x.id) === String(id));
-      return c && (c.position || '').toUpperCase() === pPos;
-    }).length;
-
-    if (currentCanchaPosCount >= 3) {
-      alert(`La Cancha ya tiene el máximo de 3 jugadores para la posición ${pPos}.`);
-      return;
+    if (!isPo && posToSet !== 'PO') {
+      const currentFieldPlayers = canchaCards.filter(p => !cardHasPosition(p, 'PO'));
+      if (currentFieldPlayers.length >= 6) {
+        alert("La Cancha ya tiene el máximo de 6 jugadores de campo.");
+        return;
+      }
     }
 
+    setCanchaPlayerPositions(prev => ({ ...prev, [idStr]: posToSet! }));
     setBancaPlayers(prev => prev.map(String).filter(id => id !== idStr));
     setCanchaPlayers(prev => [...prev.map(String).filter(id => id !== idStr), idStr]);
   };
@@ -940,15 +1046,12 @@ const DeckBuilder2: React.FC = () => {
 
     if (bancaPlayers.map(String).includes(idStr)) return;
 
-    const pPos = (player.position || '').toUpperCase();
+    const isPo = cardHasPosition(player, 'PO');
 
     // rule: exactly 1 portero in Banca
-    if (pPos === 'PO') {
-      const currentBancaPosCount = bancaPlayers.filter(id => {
-        const c = playersInDeck.find(x => String(x.id) === String(id));
-        return c && (c.position || '').toUpperCase() === 'PO';
-      }).length;
-      if (currentBancaPosCount >= 1) {
+    if (isPo) {
+      const currentBancaPoCount = bancaCards.filter(p => cardHasPosition(p, 'PO')).length;
+      if (currentBancaPoCount >= 1) {
         alert("La Banca ya tiene un portero. Solo se permite 1 portero en la banca.");
         return;
       }
@@ -1596,13 +1699,7 @@ const DeckBuilder2: React.FC = () => {
                               { id: 'MC', title: 'Línea de Mediocampo (MC)', icon: 'swap_vertical_circle', color: 'text-green-400 border-green-500/20 bg-green-950/20' },
                               { id: 'DEFENSA', title: 'Línea de Defensa (DF/PO)', icon: 'shield', color: 'text-blue-400 border-blue-500/20 bg-blue-950/20' }
                            ].map(zone => {
-                              const zonePlayers = canchaCards.filter(p => {
-                                 const pos = (p.position || '').toUpperCase();
-                                 if (zone.id === 'DEFENSA') {
-                                    return pos === 'DF' || pos === 'PO';
-                                 }
-                                 return pos === zone.id;
-                              });
+                              const zonePlayers = canchaCards.filter(p => canchaZoneAssignment[String(p.id)] === zone.id);
                               const maxZonePlayers = zone.id === 'DEFENSA' ? 4 : 3;
                               
                               return (
@@ -1611,9 +1708,28 @@ const DeckBuilder2: React.FC = () => {
                                     onDragOver={handleDragOver}
                                     onDrop={(e) => {
                                        e.preventDefault();
-                                       // Dropping directly on a zone behaves exactly like dropping on cancha
                                        const cardId = e.dataTransfer.getData('text/plain');
-                                       if (cardId) moveToCancha(cardId);
+                                       if (cardId) {
+                                          const targetPos = zone.id === 'DEFENSA' ? 'DF' : zone.id;
+                                          if (canchaPlayers.includes(cardId)) {
+                                             const p = playersInDeck.find(x => String(x.id) === String(cardId));
+                                             if (p) {
+                                                const isPo = cardHasPosition(p, 'PO');
+                                                if (isPo && zone.id === 'DEFENSA') {
+                                                   togglePlayerCanchaPosition(cardId, 'PO');
+                                                } else {
+                                                   const allowed = (p.position || '').split(',').map(s => s.trim().toUpperCase());
+                                                   if (allowed.includes(targetPos)) {
+                                                      togglePlayerCanchaPosition(cardId, targetPos);
+                                                   } else {
+                                                      alert(`El jugador "${p.name}" no puede jugar en la posición ${targetPos}. Posiciones permitidas: ${p.position}`);
+                                                   }
+                                                }
+                                             }
+                                          } else {
+                                             moveToCancha(cardId, targetPos);
+                                          }
+                                       }
                                     }}
                                     className={`relative z-10 flex-1 flex flex-col justify-center border border-dashed rounded-xl p-2 transition-all ${zone.color}`}
                                  >
@@ -1630,6 +1746,8 @@ const DeckBuilder2: React.FC = () => {
                                              key={`cancha-card-${player.id}`}
                                              card={player}
                                              location="cancha"
+                                             activePosition={canchaPlayerPositions[String(player.id)]}
+                                             onTogglePosition={(newPos) => togglePlayerCanchaPosition(String(player.id), newPos)}
                                              onMoveToBanca={() => moveToBanca(player.id)}
                                              onMoveToPool={() => moveToPool(player.id)}
                                              onShowDetails={() => { setSelectedCard(player); setIsDetailModalOpen(true); }}
@@ -1759,26 +1877,14 @@ const DeckBuilder2: React.FC = () => {
                           { 
                              label: 'Portero en Cancha', 
                              desc: 'Debe haber exactamente 1 portero (PO) en la cancha.',
-                             val: canchaPosCounts.PO === 1 ? '1 PO' : `${canchaPosCounts.PO} PO`, 
-                             ok: canchaPosCounts.PO === 1 
+                             val: `${canchaCards.filter(p => cardHasPosition(p, 'PO')).length} PO`, 
+                             ok: canchaCards.filter(p => cardHasPosition(p, 'PO')).length === 1 
                           },
                           { 
-                             label: 'Defensas en Cancha', 
-                             desc: 'Debe haber entre 1 y 3 defensas (DF) en cancha.',
-                             val: `${canchaPosCounts.DF} / 1-3`, 
-                             ok: canchaPosCounts.DF >= 1 && canchaPosCounts.DF <= 3 
-                          },
-                          { 
-                             label: 'Mediocampistas en Cancha', 
-                             desc: 'Debe haber entre 1 y 3 mediocampistas (MC) en cancha.',
-                             val: `${canchaPosCounts.MC} / 1-3`, 
-                             ok: canchaPosCounts.MC >= 1 && canchaPosCounts.MC <= 3 
-                          },
-                          { 
-                             label: 'Delanteros en Cancha', 
-                             desc: 'Debe haber entre 1 y 3 delanteros (DL) en cancha.',
-                             val: `${canchaPosCounts.DL} / 1-3`, 
-                             ok: canchaPosCounts.DL >= 1 && canchaPosCounts.DL <= 3 
+                             label: 'Formación Táctica en Cancha', 
+                             desc: 'Debe haber 6 jugadores de campo distribuidos en defensas (DF), mediocampistas (MC) y delanteros (DL) (1 a 3 por posición).',
+                             val: (canchaCards.filter(p => !cardHasPosition(p, 'PO')).length === 6 && isCanchaFormationValid(canchaCards.filter(p => !cardHasPosition(p, 'PO')))) ? 'Válida' : 'Inválida', 
+                             ok: canchaCards.filter(p => !cardHasPosition(p, 'PO')).length === 6 && isCanchaFormationValid(canchaCards.filter(p => !cardHasPosition(p, 'PO')))
                           },
                           { 
                              label: 'Capitán en Cancha', 
@@ -1786,7 +1892,7 @@ const DeckBuilder2: React.FC = () => {
                              val: `${canchaCards.filter(isCaptainCard).length} / 1`, 
                              ok: canchaCards.filter(isCaptainCard).length <= 1
                           },
-                              { 
+                          { 
                              label: 'Jugadores en Banca', 
                              desc: 'La banca debe tener exactamente 3 suplentes.',
                              val: `${bancaPlayers.length} / 3`, 

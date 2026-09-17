@@ -130,8 +130,8 @@ const FootballCard: React.FC<FootballCardProps> = ({ card, className = "", onCli
 
         {/* Bottom Content */}
         <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col items-center">
-          <p className="text-[9px] text-[#ffd900] font-black uppercase tracking-widest mb-0.5">
-            {card.category} / {card.edition}
+          <p className="text-[9px] text-[#ffd900] font-black uppercase tracking-widest mb-0.5 truncate max-w-full">
+            {card.position ? `${card.position.split(',').map(s => s.trim()).join(' / ')} • ` : ''}{card.category} / {card.edition}
           </p>
           <h3 className="text-sm font-black italic uppercase text-white tracking-tighter text-center mb-2 truncate w-full">
             {card.name}

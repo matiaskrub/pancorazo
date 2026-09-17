@@ -69,53 +69,32 @@ const DeckViewer: React.FC = () => {
            category === 'AYUDANTE TÉCNICO' || category === 'AYUDANTE TECNICO';
   };
 
+  const cardHasPosition = (card: Card | null | undefined, posTarget: string) => {
+    if (!card || !card.position) return false;
+    const positions = card.position.split(',').map(s => s.trim().toUpperCase());
+    return positions.includes(posTarget.toUpperCase());
+  };
+
   const autoDistribute = (players: Card[]) => {
     const cancha: string[] = [];
     const banca: string[] = [];
 
-    // Group players by position
-    const posGroups: Record<string, Card[]> = { PO: [], DF: [], MC: [], DL: [] };
-    players.forEach(p => {
-      const pos = (p.position || '').toUpperCase();
-      if (posGroups[pos]) {
-        posGroups[pos].push(p);
-      } else {
-        posGroups.DF.push(p);
-      }
-    });
+    const poPlayers = players.filter(p => cardHasPosition(p, 'PO'));
+    const fieldPlayers = players.filter(p => !cardHasPosition(p, 'PO'));
 
-    // 1. Assign POs (First PO to cancha, second PO to banca - mandatory)
-    if (posGroups.PO.length >= 2) {
-      cancha.push(String(posGroups.PO[0].id));
-      banca.push(String(posGroups.PO[1].id));
-      posGroups.PO = posGroups.PO.slice(2);
-    } else if (posGroups.PO.length === 1) {
-      cancha.push(String(posGroups.PO[0].id));
-      posGroups.PO = [];
+    // 1. Assign POs
+    if (poPlayers.length >= 2) {
+      cancha.push(String(poPlayers[0].id));
+      banca.push(String(poPlayers[1].id));
+    } else if (poPlayers.length === 1) {
+      cancha.push(String(poPlayers[0].id));
     }
 
-    // 2. Assign 1 of each of DF, MC, DL to Cancha if available
-    ['DF', 'MC', 'DL'].forEach(pos => {
-      if (posGroups[pos].length > 0) {
-        cancha.push(String(posGroups[pos][0].id));
-        posGroups[pos] = posGroups[pos].slice(1);
-      }
-    });
-
-    // 3. Distribute remaining players
-    const remaining = [...posGroups.PO, ...posGroups.DF, ...posGroups.MC, ...posGroups.DL];
-    remaining.forEach(p => {
-      const pPos = (p.position || '').toUpperCase();
-      const currentCanchaPosCount = cancha.filter(id => {
-        const c = players.find(x => String(x.id) === String(id));
-        return c && (c.position || '').toUpperCase() === pPos;
-      }).length;
-
-      // Rule: Cancha max 7 players, position max 3, no extra POs (already have 1)
-      if (cancha.length < 7 && currentCanchaPosCount < 3 && pPos !== 'PO') {
+    // 2. Assign field players
+    fieldPlayers.forEach(p => {
+      if (cancha.length < 7) {
         cancha.push(String(p.id));
-      } else if (banca.length < 3 && pPos !== 'PO') {
-        // Banca max 3 players, no extra POs (already have 1)
+      } else if (banca.length < 3) {
         banca.push(String(p.id));
       }
     });
@@ -151,6 +130,8 @@ const DeckViewer: React.FC = () => {
     return deck && deck.cards && !deck.cards.some((dc: any) => dc.zone === 'cancha' || dc.zone === 'banca');
   }, [deck]);
 
+  const getPrimaryPosition = (p: Card) => (p.position || '').split(',')[0].trim().toUpperCase();
+
   const canchaCards = useMemo(() => {
     if (!deck || !deck.cards) return [];
     
@@ -164,7 +145,7 @@ const DeckViewer: React.FC = () => {
     const positionOrder = ['PO', 'DF', 'MC', 'DL'];
     return playersInDeck
       .filter(p => canchaIds.includes(String(p.id)))
-      .sort((a, b) => positionOrder.indexOf((a.position || '').toUpperCase()) - positionOrder.indexOf((b.position || '').toUpperCase()));
+      .sort((a, b) => positionOrder.indexOf(getPrimaryPosition(a)) - positionOrder.indexOf(getPrimaryPosition(b)));
   }, [playersInDeck, deck, isLegacyDeck]);
 
   const bancaCards = useMemo(() => {
@@ -180,7 +161,7 @@ const DeckViewer: React.FC = () => {
     const positionOrder = ['PO', 'DF', 'MC', 'DL'];
     return playersInDeck
       .filter(p => bancaIds.includes(String(p.id)))
-      .sort((a, b) => positionOrder.indexOf((a.position || '').toUpperCase()) - positionOrder.indexOf((b.position || '').toUpperCase()));
+      .sort((a, b) => positionOrder.indexOf(getPrimaryPosition(a)) - positionOrder.indexOf(getPrimaryPosition(b)));
   }, [playersInDeck, deck, isLegacyDeck]);
 
   const unassignedCards = useMemo(() => {
@@ -202,7 +183,7 @@ const DeckViewer: React.FC = () => {
   const sortedPlayersByPosition = useMemo(() => {
     const positionOrder = ['PO', 'DF', 'MC', 'DL'];
     return [...playersInDeck].sort((a, b) => 
-      positionOrder.indexOf((a.position || '').toUpperCase()) - positionOrder.indexOf((b.position || '').toUpperCase())
+      positionOrder.indexOf(getPrimaryPosition(a)) - positionOrder.indexOf(getPrimaryPosition(b))
     );
   }, [playersInDeck]);
 
@@ -234,7 +215,7 @@ const DeckViewer: React.FC = () => {
       ? nationalitiesSets.reduce((acc, current) => new Set([...acc].filter(x => current.has(x))))
       : new Set();
 
-    const playersToInlcudeInJersey = canchaCards.filter(p => (p.position || '').toUpperCase() !== 'PO');
+    const playersToInlcudeInJersey = canchaCards.filter(p => !cardHasPosition(p, 'PO'));
     const colorSets = playersToInlcudeInJersey.map(p => new Set((p.shirt_color || '').split(',').map(s => s.trim().toLowerCase())));
     const commonColors = colorSets.length > 0 
       ? colorSets.reduce((acc, current) => new Set([...acc].filter(x => current.has(x))))

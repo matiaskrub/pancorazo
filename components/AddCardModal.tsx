@@ -41,6 +41,8 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
     const [selectedShirtColors, setSelectedShirtColors] = useState<string[]>(['Sin color']);
     const [isSeleccion, setIsSeleccion] = useState(false);
     const [editions, setEditions] = React.useState<any[]>([]);
+    const [primaryPosition, setPrimaryPosition] = useState<string>('DL');
+    const [secondaryPosition, setSecondaryPosition] = useState<string>('');
 
     React.useEffect(() => {
         if (initialData && isOpen) {
@@ -64,6 +66,14 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
                 is_hero: Number(initialData.is_hero) || 0,
                 is_fan: Number(initialData.is_fan) || 0
             });
+            if (initialData.position) {
+                const posParts = initialData.position.split(',').map((s: string) => s.trim());
+                setPrimaryPosition(posParts[0] || 'DL');
+                setSecondaryPosition(posParts[1] || '');
+            } else {
+                setPrimaryPosition('DL');
+                setSecondaryPosition('');
+            }
             if (initialData.nationality) {
                 setSelectedNationalities(initialData.nationality.split(',').map((n: string) => n.trim()));
             } else {
@@ -106,6 +116,8 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
                 is_hero: 0,
                 is_fan: 0
             });
+            setPrimaryPosition('DL');
+            setSecondaryPosition('');
             setSelectedNationalities(['Chile']);
             setSelectedShirtColors(['Sin color']);
             setIsSeleccion(false);
@@ -165,7 +177,7 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
                 // Campos condicionales: si no es jugador, se envían vacíos/nulos
                 nationality: isPlayer ? selectedNationalities.join(', ') : '',
                 shirt_color: (isPlayer || formData.is_fan === 1) ? (isSeleccion ? 'Selección' : selectedShirtColors.join(', ')) : '',
-                position: isPlayer ? formData.position : '',
+                position: isPlayer ? (secondaryPosition ? `${primaryPosition}, ${secondaryPosition}` : primaryPosition) : '',
                 stats_attack: isPlayer ? formData.stats_attack : null,
                 stats_defense: isPlayer ? formData.stats_defense : null,
                 gender: isPlayer ? formData.gender : '',
@@ -526,17 +538,35 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onCardAdde
                                     </div>
 
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Posición</label>
+                                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Posición Principal</label>
                                         <select
-                                            name="position"
-                                            value={formData.position}
-                                            onChange={handleInputChange}
-                                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white appearance-none outline-none"
+                                            value={primaryPosition}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setPrimaryPosition(val);
+                                                if (secondaryPosition === val) setSecondaryPosition('');
+                                            }}
+                                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white appearance-none outline-none focus:border-[#ffd900]/50 font-medium"
                                         >
                                             <option value="PO">Arquero (POR)</option>
                                             <option value="DF">Defensa (DEF)</option>
                                             <option value="MC">Mediocampista (MED)</option>
                                             <option value="DL">Delantero (DEL)</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Posición Secundaria (Opcional)</label>
+                                        <select
+                                            value={secondaryPosition}
+                                            onChange={(e) => setSecondaryPosition(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white appearance-none outline-none focus:border-[#ffd900]/50 font-medium"
+                                        >
+                                            <option value="">Sin Posición Secundaria</option>
+                                            {primaryPosition !== 'PO' && <option value="PO">Arquero (POR)</option>}
+                                            {primaryPosition !== 'DF' && <option value="DF">Defensa (DEF)</option>}
+                                            {primaryPosition !== 'MC' && <option value="MC">Mediocampista (MED)</option>}
+                                            {primaryPosition !== 'DL' && <option value="DL">Delantero (DEL)</option>}
                                         </select>
                                     </div>
                                 </>

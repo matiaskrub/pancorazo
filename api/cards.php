@@ -115,7 +115,7 @@ function getCards($pdo)
                         $params['edition'] = $edVal;
                         $params['edition_like'] = "%" . $edVal . "%";
                     }
-                } else if ($field === 'shirt_color' || $field === 'nationality') {
+                } else if ($field === 'shirt_color' || $field === 'nationality' || $field === 'position') {
                     $filters[] = "$field COLLATE utf8mb4_unicode_ci LIKE :$field";
                     $params[$field] = "%" . $_GET[$field] . "%";
                 } else {

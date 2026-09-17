@@ -136,8 +136,8 @@ const Library: React.FC = () => {
   }, [filterOptions, activeType]);
 
   const positions = useMemo(() => {
-    return Array.from(new Set(filterOptions.filter(c => (c.type === activeType || activeType === 'Limpiar') && (c.category === activeCategory || activeCategory === 'Limpiar')).map(c => c.position))).filter(Boolean).sort();
-  }, [filterOptions, activeType, activeCategory]);
+    return ['PO', 'DF', 'MC', 'DL'];
+  }, []);
 
   const raritiesList = useMemo(() => {
     return ['Amateur', 'Semiprofesional', 'Profesional', 'Clase Mundial', 'Leyenda'];
@@ -403,7 +403,7 @@ const Library: React.FC = () => {
                     <div className="text-center text-[10px] font-black text-white italic">{card.stats_defense || 0}</div>
                     <div>
                       <span className="text-[9px] font-black bg-white/5 border border-white/10 px-2 py-0.5 rounded text-white/60">
-                        {card.position}
+                        {card.position ? card.position.split(',').map(s => s.trim()).join(' / ') : '-'}
                       </span>
                     </div>
                     <div className="text-[9px] font-black text-white/20 truncate">
