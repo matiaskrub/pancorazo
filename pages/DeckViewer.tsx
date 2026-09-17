@@ -205,10 +205,10 @@ const DeckViewer: React.FC = () => {
   const baseEnergy = useMemo(() => {
     if (canchaCards.length === 0) return { captain: false, nationality: false, jersey: false };
 
-    const hasCaptain = canchaCards.some(p => 
-      (p.ability?.toLowerCase().includes('capitán') || p.ability?.toLowerCase().includes('capitan')) ||
-      (p.ability_text?.toLowerCase().includes('capitán') || p.ability_text?.toLowerCase().includes('capitan'))
-    );
+    const hasCaptain = canchaCards.some(p => {
+      const ability = (p.ability || '').toUpperCase();
+      return ability.includes('CAPITÁN') || ability.includes('CAPITAN');
+    });
 
     const nationalitiesSets = canchaCards.map(p => new Set((p.nationality || '').split(',').map(s => s.trim().toLowerCase())));
     const commonNationalities = nationalitiesSets.length > 0 

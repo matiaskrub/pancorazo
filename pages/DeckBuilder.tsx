@@ -503,8 +503,7 @@ const DeckBuilder2: React.FC = () => {
 
   const isCaptainCard = (card: Card) => {
     const ability = String(card.ability || '').toUpperCase();
-    const abilityText = String(card.ability_text || '').toUpperCase();
-    return ability.includes('CAPITÁN') || ability.includes('CAPITAN') || abilityText.includes('CAPITÁN') || abilityText.includes('CAPITAN');
+    return ability.includes('CAPITÁN') || ability.includes('CAPITAN');
   };
 
   const getMaxAllowed = (card: Card) => {
